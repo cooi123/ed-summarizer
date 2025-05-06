@@ -12,33 +12,14 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import useUnitsStore from "@/store/unitStore";
-import { useAuth } from "@/components/auth-provider";
+import useUserStore from "@/store/userStore";
 
 export default function Dashboard() {
-  const { selectedUnitIds, availableUnits, fetchUnits } = useUnitsStore();
-  const { user } = useAuth();
-  const { toast } = useToast();
-  console.log("user", user);
-  console.log("selectedUnitIds", selectedUnitIds);
-  console.log("availableUnits", availableUnits);
-  // Fetch units when the component loads
-  useEffect(() => {
-    if (user) {
-      fetchUnits(user).catch((error) => {
-        toast({
-          title: "Error fetching units",
-          description: "Could not load your units. Please try again.",
-          variant: "destructive",
-        });
-        console.error("Failed to fetch units:", error);
-      });
-    }
-  }, [user, fetchUnits, toast]);
-
-  // Get currently selected units
+  const { user, loading, updating, fetchUser } = useUserStore();
+  const selectedUnitIds = user?.selectedUnits || [];
+  const availableUnits = user?.availableUnits || [];
   const selectedUnits = availableUnits.filter((unit) =>
-    selectedUnitIds.includes(unit.id)
+    selectedUnitIds.some((selectedUnit) => selectedUnit.unit_id === unit.id)
   );
 
   return (

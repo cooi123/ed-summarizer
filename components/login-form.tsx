@@ -4,7 +4,7 @@ import type React from "react";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/components/auth-provider";
+import { useAuth } from "@/store/auth-provider";
 import { Button } from "@/components/ui/button";
 import {
   Card,

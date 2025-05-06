@@ -5,22 +5,11 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-
-export type UnitSync = {
-  unit_id: string;
-  last_sync: string | null;
-};
-export type User = {
-  id: string;
-  email: string;
-  name: string;
-  selectedUnits: UnitSync[];
-};
+import { User } from "@/types/user";
 
 type AuthState = {
   user: User | null;
   setUser: (user: User | null) => void;
-  updateUser: (updates: Partial<User>) => void;
 };
 
 // Create a Zustand store with persist middleware
@@ -29,10 +18,6 @@ const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       setUser: (user) => set({ user }),
-      updateUser: (updates) =>
-        set((state) => ({
-          user: state.user ? { ...state.user, ...updates } : null,
-        })),
     }),
     {
       name: "auth-storage", // name for the storage key
@@ -44,14 +29,13 @@ type AuthContextType = {
   user: User | null;
   login: (email: string) => Promise<void>;
   logout: () => Promise<void>;
-  updateUser: (updates: Partial<User>) => void;
   isLoading: boolean;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { user, setUser, updateUser } = useAuthStore();
+  const { user, setUser } = useAuthStore();
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
@@ -108,17 +92,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push("/");
   };
 
-  const handleUpdateUser = (updates: Partial<User>) => {
-    updateUser(updates);
-  };
-
   return (
     <AuthContext.Provider
       value={{
         user,
         login,
         logout,
-        updateUser: handleUpdateUser,
         isLoading,
       }}
     >
