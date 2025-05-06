@@ -1,16 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Clock, History, Settings } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTaskStore } from "@/store/taskStore";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +11,7 @@ import useUserStore from "@/store/userStore";
 import { useUnitStore } from "@/store/unitStore";
 import { UnitGenerateReportDialog } from "@/components/unit/unit-generate-report-dialog";
 import { UnitReportHistory } from "@/components/unit/unit-report-history";
+import { TaskProgressBar } from "@/components/unit/unit-task-progress-bar";
 
 export default function UnitPage() {
   const params = useParams();
@@ -30,8 +23,6 @@ export default function UnitPage() {
 
   // State for UI
   const [activeTab, setActiveTab] = useState("current");
-  const [progress, setProgress] = useState(0);
-  const [reportContent, setReportContent] = useState<string>("");
   const [selectedHistoryRun, setSelectedHistoryRun] = useState<string | null>(
     null
   );
@@ -48,8 +39,7 @@ export default function UnitPage() {
   const tasksLoading = useTaskStore((state) => state.loading);
   const taskError = useTaskStore((state) => state.error);
   const getTaskRuns = useTaskStore((state) => state.getTaskRuns);
-  const getLatestTaskRun = useTaskStore((state) => state.getLatestTaskRun);
-  const runTask = useTaskStore((state) => state.runTask);
+  const polling = useTaskStore((state) => state.polling);
 
   // Fetch unit data on mount
   useEffect(() => {
@@ -97,84 +87,11 @@ export default function UnitPage() {
     }
   }, [unitError, toast]);
 
-  // Setup polling when task is running
-  useEffect(() => {
-    let interval: NodeJS.Timeout | undefined;
-    let progressInterval: NodeJS.Timeout | undefined;
-
-    if (taskRunning && user) {
-      // Start progress animation
-      setProgress(10);
-      progressInterval = setInterval(() => {
-        setProgress((prev) => Math.min(prev + 5, 90)); // Cap at 90% until complete
-      }, 3000);
-
-      // Poll for updates
-      interval = setInterval(async () => {
-        const latestRun = await getLatestTaskRun(unitId, user.id);
-
-        if (
-          latestRun?.status === "completed" ||
-          latestRun?.status === "failed"
-        ) {
-          setTaskRunning(false);
-          clearInterval(interval);
-          clearInterval(progressInterval);
-          setProgress(latestRun.status === "completed" ? 100 : 0);
-
-          // Update report content
-          if (latestRun.result) {
-            const resultContent =
-              typeof latestRun.result === "string"
-                ? latestRun.result
-                : JSON.stringify(latestRun.result, null, 2);
-
-            setReportContent(resultContent);
-          }
-
-          // Show completion message
-          toast({
-            title:
-              latestRun.status === "completed"
-                ? "Report Generated"
-                : "Report Failed",
-            description:
-              latestRun.status === "completed"
-                ? "Your report has been successfully generated."
-                : `Error: ${latestRun.error_message || "Unknown error"}`,
-            variant:
-              latestRun.status === "completed" ? "default" : "destructive",
-          });
-        }
-      }, 5000);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-      if (progressInterval) clearInterval(progressInterval);
-    };
-  }, [taskRunning, unitId, user, getLatestTaskRun, toast]);
-
   // Handler for when task is started from the dialog
   const handleTaskStarted = () => {
     setActiveTab("current");
     setSelectedHistoryRun(null);
     setTaskRunning(true);
-    setProgress(5);
-  };
-
-  // Handler for viewing a historical report
-  const viewHistoricalReport = (run: any) => {
-    if (!run || !run.result) return;
-
-    setSelectedHistoryRun(run.id);
-    const resultContent =
-      typeof run.result === "string"
-        ? run.result
-        : JSON.stringify(run.result, null, 2);
-
-    setReportContent(resultContent);
-    setActiveTab("current");
   };
 
   // Show loading state
@@ -233,7 +150,7 @@ export default function UnitPage() {
         onOpenChange={setIsReportDialogOpen}
         onTaskStarted={handleTaskStarted}
       />
-
+      {polling && <TaskProgressBar />}
       <Tabs
         defaultValue="current"
         value={activeTab}

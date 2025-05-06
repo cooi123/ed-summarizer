@@ -1,3 +1,5 @@
+import { getTaskById } from "@/lib/units";
+
 /**
  * API endpoint generator functions for building URLs with parameters
  */
@@ -12,5 +14,12 @@ export const apiEndpoints = {
   units: {
     getById: (unitId: string) => `/units/${unitId}`,
     update: (unitId: string) => `/units/${unitId}`,
+  },
+
+  tasks: {
+    getByUnitId: (unitId: string) => `/tasks/${unitId}`,
+    runTask: () => `/tasks/run_chain/`,
+    getTaskStatus: (taskId: string) => `/tasks/status/${taskId}`,
+    getTaskById: (taskId: string) => `/tasks/task/${taskId}`,
   },
 };

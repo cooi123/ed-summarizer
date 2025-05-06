@@ -41,9 +41,9 @@ export const apiService = {
   /**
    * POST request
    */
-  post: async <T>(
+  post: async <T, D>(
     url: string,
-    data?: any,
+    data?: D,
     config?: AxiosRequestConfig
   ): Promise<T> => {
     const response: AxiosResponse = await api.post(url, data, config);
