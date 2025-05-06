@@ -1,15 +1,29 @@
 import { create } from "zustand";
 import axios from "axios";
+import { apiEndpoints } from "@/const/apiEndpoints";
+import { apiService } from "@/lib/api";
+import { TaskRunRequest } from "@/types/task";
 
 // Define the types based on the schema
 interface TaskInput {
   unitId: string;
   userId: string;
+  startDate: Date;
+  endDate: Date;
 }
 
+interface SimilarQuestion {
+  theme: string;
+  questionIds: string[];
+}
 interface TaskResult {
-  // Define result structure based on actual data
-  [key: string]: any;
+  report: string;
+  questions: SimilarQuestion[];
+}
+interface TaskRunStatusResponse {
+  transactionId: string;
+  status: string;
+  progress: number;
 }
 
 export interface TaskRun {
@@ -29,9 +43,10 @@ export interface TaskRun {
 interface TaskStore {
   // State
   taskRuns: TaskRun[];
-  currentTaskRun: TaskRun | null;
+  currentTaskRun: TaskRunStatusResponse | null;
   loading: boolean;
   error: string | null;
+  polling: boolean;
 
   // Actions
   getTaskRuns: (unitId: string, userId: string) => Promise<void>;
@@ -42,23 +57,28 @@ interface TaskStore {
     startDate: Date,
     endDate: Date
   ) => Promise<TaskRun | null>;
+  pollTaskStatus: (
+    transactionId: string,
+    unitId: string,
+    userId: string,
+    intervalMs?: number
+  ) => Promise<void>;
+  stopPolling: () => void;
   clearError: () => void;
 }
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 export const useTaskStore = create<TaskStore>((set, get) => ({
   taskRuns: [],
   currentTaskRun: null,
   loading: false,
   error: null,
+  polling: false,
 
   getTaskRuns: async (unitId: string, userId: string) => {
     try {
       set({ loading: true, error: null });
-      const response = await axios.get(`${BASE_URL}/tasks/${unitId}`);
-      const tasks = response.data.filter(
-        (task: TaskRun) => task.user_id === userId
+      const tasks = await apiService.get<TaskRun[]>(
+        apiEndpoints.tasks.getByUnitId(unitId)
       );
 
       // Sort by creation date (newest first)
@@ -78,23 +98,22 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
   },
 
-  getLatestTaskRun: async (unitId: string, userId: string) => {
+  getLatestTaskRun: async () => {
     try {
       set({ loading: true, error: null });
-      const response = await axios.get(`${BASE_URL}/tasks/${unitId}`);
-      const tasks = response.data.filter(
-        (task: TaskRun) => task.user_id === userId
+      //get the first task from the list
+      const taskRuns = get().taskRuns;
+      if (taskRuns.length === 0) {
+        set({ loading: false });
+        return null;
+      }
+      const latestTask = taskRuns[0];
+      const taskId = latestTask.task_id;
+      const latestTaskRun = await apiService.get<TaskRun>(
+        apiEndpoints.tasks.getTaskById(taskId)
       );
-
-      // Sort by creation date (newest first)
-      tasks.sort(
-        (a: TaskRun, b: TaskRun) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-
-      const latestTask = tasks.length > 0 ? tasks[0] : null;
-      set({ currentTaskRun: latestTask, loading: false });
-      return latestTask;
+      set({ loading: false });
+      return latestTaskRun;
     } catch (error) {
       console.error("Error fetching latest task run:", error);
       set({
@@ -118,20 +137,23 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         endDate,
       };
 
-      const response = await axios.post(
-        `${BASE_URL}/tasks/run_chain/`,
-        payload
-      );
-      const newTaskRun = response.data;
+      const response = await apiService.post<
+        TaskRunStatusResponse,
+        TaskRunRequest
+      >(apiEndpoints.tasks.runTask(), payload);
 
-      // Update the task runs array with the new task
+      // Update the current task run status
       set((state) => ({
-        taskRuns: [newTaskRun, ...state.taskRuns],
-        currentTaskRun: newTaskRun,
+        currentTaskRun: response,
         loading: false,
       }));
 
-      return newTaskRun;
+      // Start polling automatically when a task is run
+      get().pollTaskStatus(response.transactionId, unitId, userId);
+
+      // Since we don't have the full TaskRun object yet, return null
+      // The complete TaskRun will be available after polling completes
+      return null;
     } catch (error) {
       console.error("Error running task:", error);
       set({
@@ -140,6 +162,66 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       });
       return null;
     }
+  },
+  pollTaskStatus: async (
+    transactionId: string,
+    unitId: string,
+    userId: string,
+    intervalMs = 2000
+  ) => {
+    // Stop any existing polling first
+    get().stopPolling();
+
+    // Set polling to true
+    set({ polling: true });
+
+    const checkStatus = async () => {
+      if (!get().polling) return; // Exit if polling has been stopped
+
+      try {
+        // Assuming there's an endpoint to check task status
+        const response = await apiService.get<TaskRunStatusResponse>(
+          apiEndpoints.tasks.getTaskStatus(transactionId)
+        );
+
+        set({ currentTaskRun: response });
+
+        // If task is completed or failed, stop polling
+        if (response.status === "completed" || response.status === "failed") {
+          set({ loading: false, polling: false });
+
+          // Refresh the task list if the task was completed
+          if (
+            response.status === "completed" ||
+            response.status === "failed" ||
+            response.status === "error"
+          ) {
+            //refetch the task run list
+            await get().getTaskRuns(unitId, userId);
+          }
+        } else {
+          // Continue polling
+          setTimeout(checkStatus, intervalMs);
+        }
+      } catch (error) {
+        console.error("Error polling task status:", error);
+        set({
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to poll task status",
+          polling: false,
+          loading: false,
+        });
+      }
+    };
+
+    // Start the polling
+    checkStatus();
+  },
+
+  stopPolling: () => {
+    set({ polling: false });
   },
 
   clearError: () => set({ error: null }),

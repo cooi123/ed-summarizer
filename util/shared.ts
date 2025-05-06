@@ -40,3 +40,17 @@ export const generateWeeks = (
 
   return weeks;
 };
+
+export const downloadReport = (content: string, name: string) => {
+  const blob = new Blob([content], { type: "text/markdown" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${name}-weekly-report-${
+    new Date().toISOString().split("T")[0]
+  }.md`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
