@@ -11,27 +11,51 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import useUnitsStore from "@/store/unitStore";
-import { UnitSync, useAuth } from "@/components/auth-provider";
+import useUserStore from "@/store/userStore";
+import { UnitSync } from "@/types/user";
+import { useAuth } from "@/store/auth-provider";
 
 export default function SettingsPage() {
-  const { availableUnits, selectedUnitIds, fetchUnits, saveSelectedUnits } =
-    useUnitsStore();
-  const [localSelectedUnits, setLocalSelectedUnits] = useState<string[]>([]);
   const { toast } = useToast();
-  const { user, updateUser } = useAuth();
+  const { user: authUser } = useAuth();
+  const { user, loading, updating, fetchUser, updateSelectedUnits } =
+    useUserStore();
 
-  // Fetch units when component loads
+  // Local state for managing unit selections before saving
+  const [localSelectedUnits, setLocalSelectedUnits] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Get available units and currently selected unit IDs from user store
+  const availableUnits = user?.availableUnits || [];
+
+  // Get selected unit IDs for easier comparison
+  const selectedUnitIds =
+    user?.selectedUnits?.map((unit) => unit.unit_id) || [];
+
+  // Fetch user data once when component mounts
   useEffect(() => {
-    if (user) {
-      fetchUnits(user);
+    // Store email in a variable to prevent it from changing in the dependency array
+    const email = authUser?.email || "";
+
+    // Only fetch if email exists and user data isn't already loaded
+    if (email && !user) {
+      fetchUser(email);
     }
-  }, [user, fetchUnits]);
-  console.log("local selected" + localSelectedUnits);
-  // Initialize local state with the store's selected units
+    // NOTE: We're using an empty dependency array to run this only on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Initialize local state with the store's selected units when user data changes
   useEffect(() => {
-    setLocalSelectedUnits(selectedUnitIds);
-  }, [selectedUnitIds]);
+    // Only update local state if it doesn't match the current selectedUnitIds
+    if (
+      user &&
+      JSON.stringify(localSelectedUnits) !== JSON.stringify(selectedUnitIds)
+    ) {
+      setLocalSelectedUnits(selectedUnitIds);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   // Handle local toggle of units
   const handleToggleUnit = (unitId: string) => {
@@ -41,35 +65,62 @@ export default function SettingsPage() {
         : [...prev, unitId]
     );
   };
-  // Save preferences to backend
+
+  // Save preferences to backend via UserStore
   const handleSavePreferences = async () => {
-    if (user && user.id) {
-      // Update the backend
-      saveSelectedUnits(user.id, localSelectedUnits);
-
-      // Transform string IDs into UnitSync objects
-      const selectedUnitObjects: UnitSync[] = localSelectedUnits.map(
-        (unitId) => ({
-          unit_id: unitId,
-          last_sync: null,
-        })
-      );
-
-      // Update the user in auth context
-      updateUser({ selectedUnits: selectedUnitObjects });
-
-      toast({
-        title: "Preferences saved",
-        description: "Your unit preferences have been saved successfully.",
-      });
-    } else {
+    if (!user) {
       toast({
         title: "Error",
         description: "User not found. Please log in again.",
         variant: "destructive",
       });
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      // Transform string IDs into UnitSync objects
+      const selectedUnitObjects: UnitSync[] = localSelectedUnits.map(
+        (unitId) => ({
+          unit_id: unitId,
+          // Preserve last_sync value if unit was previously selected
+          last_sync:
+            user.selectedUnits.find((u) => u.unit_id === unitId)?.last_sync ||
+            null,
+        })
+      );
+
+      // Update the user in store (which will update the backend)
+      await updateSelectedUnits(selectedUnitObjects);
+
+      toast({
+        title: "Preferences saved",
+        description: "Your unit preferences have been saved successfully.",
+      });
+    } catch (error) {
+      console.error("Error saving preferences:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save preferences. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
+
+  // Show loading state
+  if (loading && !user) {
+    return (
+      <div className="flex items-center justify-center h-[50vh]">
+        <div className="text-center">
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+          <p className="text-sm text-muted-foreground">Loading settings...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -117,9 +168,19 @@ export default function SettingsPage() {
               </p>
             )}
 
-            <Button onClick={handleSavePreferences} className="mt-6">
-              Save Preferences
-            </Button>
+            <div className="pt-6">
+              <Button
+                onClick={handleSavePreferences}
+                disabled={
+                  isSaving ||
+                  updating ||
+                  JSON.stringify(localSelectedUnits.sort()) ===
+                    JSON.stringify(selectedUnitIds.sort())
+                }
+              >
+                {isSaving || updating ? "Saving..." : "Save Preferences"}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
