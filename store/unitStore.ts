@@ -1,173 +1,236 @@
-import { User } from "@/components/auth-provider";
+import { apiEndpoints } from "@/const/apiEndpoints";
+import { apiService } from "@/lib/api";
+import { Unit, WeekConfig } from "@/types/unit";
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { immer } from "zustand/middleware/immer";
 
-export type Unit = {
-  id: string;
-  code: string;
-  name: string;
-  year: number;
-  session: string;
-  status: "active" | "inactive";
-  created_at: string;
-  last_active: string;
+// Common update function to be reused internally
+const performUpdate = async (
+  unitId: string,
+  updates: Partial<Unit>,
+  onSuccess: (data: any) => void,
+  onError: (error: Error) => void
+) => {
+  try {
+    const updatedData = await apiService.patch<Unit>(
+      apiEndpoints.units.update(unitId),
+      updates
+    );
+
+    onSuccess(updatedData);
+    return updatedData;
+  } catch (error: any) {
+    const errorMessage = error.message || "Failed to update unit data.";
+    onError(new Error(errorMessage));
+    throw error;
+  }
 };
 
-export type Task = {
-  id: string;
-  name: string;
-  description: string;
-};
-
-export type TaskRun = {
-  id: string;
-  taskId: string;
-  unitId: string;
-  timestamp: number;
-  status: "running" | "completed" | "failed";
-  progress: number;
-  result?: string;
-};
-
-interface UnitsState {
-  // Data
-  availableUnits: Unit[];
-  unitTasks: Record<string, Task[]>;
-  selectedUnitIds: string[];
-  taskHistory: TaskRun[];
-
-  // API status
+interface UnitState {
+  unit: Unit | null;
   isLoading: boolean;
+  isUpdating: boolean;
   error: string | null;
 
-  // Actions
-  fetchUnits: (user: User) => Promise<void>;
-  fetchTasks: (unitId: string) => Promise<void>;
-  saveSelectedUnits: (userId: string, unitIds: string[]) => void;
-  addTaskRun: (taskRun: TaskRun) => void;
-  updateTaskRun: (taskRunId: string, updates: Partial<TaskRun>) => void;
+  // Core actions
+  fetchUnit: (unitId: string) => Promise<void>;
+  clearError: () => void;
+  reset: () => void;
+
+  // Update actions using the shared pattern
+  updateUnitDetails: (
+    details: Partial<Pick<Unit, "description" | "content" | "name">>
+  ) => Promise<void>;
+  updateWeek: (
+    weekIndex: number,
+    weekData: Partial<WeekConfig>
+  ) => Promise<void>;
+  updateAllWeeks: (weeks: WeekConfig[]) => Promise<void>;
 }
-const BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
-const useUnitsStore = create<UnitsState>()(
-  persist(
-    (set, get) => ({
-      // Initial state
-      availableUnits: [],
-      unitTasks: {},
-      selectedUnitIds: [],
-      taskHistory: [],
-      isLoading: false,
-      error: null,
 
-      // Actions
-      fetchUnits: async (user: User) => {
-        set({ isLoading: true, error: null });
-        try {
-          // Replace with your actual API endpoint
-          const response = await fetch(
-            `${BASE_URL}/users/units?email=${user.email}`
-          );
-          if (!response.ok) {
-            throw new Error("Failed to fetch units");
-          }
-          const data = await response.json();
-          const units = data.active;
+export const useUnitStore = create<UnitState>()(
+  immer((set, get) => ({
+    // --- State ---
+    unit: null,
+    isLoading: false,
+    isUpdating: false,
+    error: null,
 
-          const selectedIds =
-            user.selectedUnits.map((unit) => unit.unit_id) || [];
-          console.log(user);
-          set({
-            availableUnits: units,
-            selectedUnitIds: selectedIds,
-            isLoading: false,
-          });
-        } catch (error) {
-          set({
-            error:
-              error instanceof Error
-                ? error.message
-                : "An unknown error occurred",
-            isLoading: false,
-          });
-          console.error("Error fetching units:", error);
-        }
-      },
+    // --- Core Actions ---
+    fetchUnit: async (unitId) => {
+      if (get().isLoading) return;
+      set({ isLoading: true, error: null, unit: null });
+      try {
+        const unit = await apiService.get<Unit>(
+          apiEndpoints.units.getById(unitId)
+        );
+        set({ unit, isLoading: false });
+      } catch (error: any) {
+        console.error("Failed to fetch unit:", error);
+        set({
+          isLoading: false,
+          error: error.message || "Failed to fetch unit data.",
+        });
+      }
+    },
 
-      fetchTasks: async (unitId: string) => {
-        set({ isLoading: true, error: null });
-        try {
-          // Replace with your actual API endpoint
-          const response = await fetch(`/api/units/${unitId}/tasks`);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch tasks for unit ${unitId}`);
-          }
-          const tasks = await response.json();
+    clearError: () => set({ error: null }),
 
-          set((state) => ({
-            unitTasks: {
-              ...state.unitTasks,
-              [unitId]: tasks,
-            },
-            isLoading: false,
-          }));
-        } catch (error) {
-          set({
-            error:
-              error instanceof Error
-                ? error.message
-                : "An unknown error occurred",
-            isLoading: false,
-          });
-          console.error(`Error fetching tasks for unit ${unitId}:`, error);
-        }
-      },
-      saveSelectedUnits: (userId: string, unitIds: string[]) => {
-        fetch(`${BASE_URL}/users/units?id=${userId}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            selectedUnitIds: unitIds,
-          }),
-        })
-          .then((response) => {
-            if (!response.ok) {
-              throw new Error("Failed to update selected units");
-            }
-            return response.json();
-          })
-          .then(() => {
-            set({ selectedUnitIds: unitIds });
-          })
-          .catch((error) => {
-            console.error("Error updating selected units:", error);
-          });
-      },
-
-      addTaskRun: (taskRun: TaskRun) => {
-        set((state) => ({
-          taskHistory: [taskRun, ...state.taskHistory],
-        }));
-      },
-
-      updateTaskRun: (taskRunId: string, updates: Partial<TaskRun>) => {
-        set((state) => ({
-          taskHistory: state.taskHistory.map((run) =>
-            run.id === taskRunId ? { ...run, ...updates } : run
-          ),
-        }));
-      },
-    }),
-    {
-      name: "units-storage", // name for the storage
-      partialize: (state) => ({
-        selectedUnitIds: state.selectedUnitIds,
-        taskHistory: state.taskHistory,
+    reset: () =>
+      set({
+        unit: null,
+        isLoading: false,
+        isUpdating: false,
+        error: null,
       }),
-    }
-  )
+
+    // --- Update Actions ---
+    updateUnitDetails: async (details) => {
+      if (get().isUpdating) return;
+      const currentUnit = get().unit;
+      if (!currentUnit) {
+        set({ error: "Cannot update details: Unit not loaded." });
+        return;
+      }
+
+      set({ isUpdating: true, error: null });
+
+      try {
+        await performUpdate(
+          currentUnit.id,
+          details,
+          (updatedData) => {
+            set((state) => {
+              if (state.unit) {
+                Object.assign(state.unit, updatedData);
+              }
+              state.isUpdating = false;
+            });
+          },
+          (error) => {
+            set({
+              isUpdating: false,
+              error: error.message,
+            });
+          }
+        );
+      } catch (error: any) {
+        console.error("Failed to update unit details:", error);
+      }
+    },
+
+    updateWeek: async (weekIndex, weekData) => {
+      if (get().isUpdating) return;
+      const currentUnit = get().unit;
+      if (!currentUnit) {
+        set({ error: "Cannot update week: Unit not loaded." });
+        return;
+      }
+
+      if (weekIndex < 0 || weekIndex >= currentUnit.weeks.length) {
+        set({ error: `Week index ${weekIndex} is out of bounds.` });
+        return;
+      }
+
+      set({ isUpdating: true, error: null });
+
+      try {
+        // Create a deep copy of the weeks array with the update applied to the specific week
+        const updatedWeeks = currentUnit.weeks.map((week, idx) =>
+          idx === weekIndex ? { ...week, ...weekData } : week
+        );
+
+        await performUpdate(
+          currentUnit.id,
+          { weeks: updatedWeeks },
+          (updatedData) => {
+            set((state) => {
+              if (state.unit && updatedData.weeks) {
+                state.unit.weeks = updatedData.weeks;
+              }
+              state.isUpdating = false;
+            });
+          },
+          (error) => {
+            set({
+              isUpdating: false,
+              error: error.message,
+            });
+          }
+        );
+      } catch (error: any) {
+        console.error(`Failed to update week ${weekIndex}:`, error);
+      }
+    },
+
+    updateAllWeeks: async (newWeeks) => {
+      if (get().isUpdating) return;
+      const currentUnit = get().unit;
+      console.log("Current Unit:", currentUnit);
+      if (!currentUnit) {
+        set({ error: "Cannot update weeks: Unit not loaded." });
+        return;
+      }
+
+      set({ isUpdating: true, error: null });
+
+      try {
+        await performUpdate(
+          currentUnit.id,
+          { weeks: newWeeks },
+          (updatedData) => {
+            set((state) => {
+              if (state.unit && updatedData.weeks) {
+                state.unit.weeks = updatedData.weeks;
+              }
+              state.isUpdating = false;
+            });
+          },
+          (error) => {
+            set({
+              isUpdating: false,
+              error: error.message,
+            });
+          }
+        );
+      } catch (error: any) {
+        console.error("Failed to update all weeks:", error);
+      }
+    },
+  }))
 );
 
-export default useUnitsStore;
+// Export helper functions that leverage the store
+export const updateUnitDetails = async (
+  unitId: string,
+  details: Partial<Pick<Unit, "description" | "content" | "name">>
+): Promise<void> => {
+  const store = useUnitStore.getState();
+  if (store.unit?.id !== unitId) {
+    await store.fetchUnit(unitId);
+  }
+  return store.updateUnitDetails(details);
+};
+
+export const updateWeek = async (
+  unitId: string,
+  weekIndex: number,
+  weekData: Partial<WeekConfig>
+): Promise<void> => {
+  const store = useUnitStore.getState();
+  if (store.unit?.id !== unitId) {
+    await store.fetchUnit(unitId);
+  }
+  return store.updateWeek(weekIndex, weekData);
+};
+
+export const updateAllWeeks = async (
+  unitId: string,
+  weeks: WeekConfig[]
+): Promise<void> => {
+  const store = useUnitStore.getState();
+  if (store.unit?.id !== unitId) {
+    await store.fetchUnit(unitId);
+  }
+  return store.updateAllWeeks(weeks);
+};

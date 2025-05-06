@@ -1,6 +1,4 @@
 "use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Card,
@@ -11,53 +9,15 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import useUnitsStore from "@/store/unitStore";
-import { useAuth } from "@/components/auth-provider";
-import { useToast } from "@/hooks/use-toast";
+import useUserStore from "@/store/userStore";
 
 export default function UnitsPage() {
-  const { selectedUnitIds, availableUnits, fetchUnits } = useUnitsStore();
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Fetch units when component loads
-  useEffect(() => {
-    async function loadUnits() {
-      if (user) {
-        setIsLoading(true);
-        try {
-          await fetchUnits(user);
-        } catch (error) {
-          toast({
-            title: "Error fetching units",
-            description: "Could not load your units. Please try again.",
-            variant: "destructive",
-          });
-          console.error("Failed to fetch units:", error);
-        } finally {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    loadUnits();
-  }, [user, fetchUnits, toast]);
-  // Get currently selected units - with null safety
-  const selectedUnits =
-    availableUnits?.filter((unit) => selectedUnitIds?.includes(unit.id)) || [];
-
-  // Show loading state
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">My Units</h1>
-          <p className="text-muted-foreground">Loading your units...</p>
-        </div>
-      </div>
-    );
-  }
+  const { user } = useUserStore();
+  const selectedUnitIds = user?.selectedUnits || [];
+  const availableUnits = user?.availableUnits || [];
+  const selectedUnits = availableUnits.filter((unit) =>
+    selectedUnitIds.some((selectedUnit) => selectedUnit.unit_id === unit.id)
+  );
 
   // Show empty state if no units are selected
   if (selectedUnits.length === 0) {
