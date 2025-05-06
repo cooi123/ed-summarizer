@@ -6,7 +6,7 @@ import { getTaskById } from "@/lib/units";
 export const apiEndpoints = {
   // User endpoints
   user: {
-    get: (email: string) => `/users?email=${email}`,
+    get: (email: string) => `/users/?email=${email}`,
     update: (userId: string) => `/users/${userId}`,
   },
 
