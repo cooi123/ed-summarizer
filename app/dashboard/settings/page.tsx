@@ -14,16 +14,29 @@ import { useToast } from "@/hooks/use-toast";
 import useUserStore from "@/store/userStore";
 import { UnitSync } from "@/types/user";
 import { useAuth } from "@/store/auth-provider";
+import { Input } from "@/components/ui/input";
+import { Eye, EyeOff, Save } from "lucide-react";
 
 export default function SettingsPage() {
   const { toast } = useToast();
   const { user: authUser } = useAuth();
-  const { user, loading, updating, fetchUser, updateSelectedUnits } =
-    useUserStore();
+  const {
+    user,
+    loading,
+    updating,
+    fetchUser,
+    updateSelectedUnits,
+    updateUserApiKey,
+  } = useUserStore();
 
   // Local state for managing unit selections before saving
   const [localSelectedUnits, setLocalSelectedUnits] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+
+  // API Key states
+  const [apiKey, setApiKey] = useState("");
+  const [isApiKeySaving, setIsApiKeySaving] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
 
   // Get available units and currently selected unit IDs from user store
   const availableUnits = user?.availableUnits || [];
@@ -41,7 +54,6 @@ export default function SettingsPage() {
     if (email && !user) {
       fetchUser(email);
     }
-    // NOTE: We're using an empty dependency array to run this only on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -53,6 +65,11 @@ export default function SettingsPage() {
       JSON.stringify(localSelectedUnits) !== JSON.stringify(selectedUnitIds)
     ) {
       setLocalSelectedUnits(selectedUnitIds);
+    }
+
+    // Set API key if available
+    if (user?.apiKey) {
+      setApiKey(user.apiKey);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -110,6 +127,38 @@ export default function SettingsPage() {
     }
   };
 
+  // Save API key to backend via UserStore
+  const handleSaveApiKey = async () => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "User not found. Please log in again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsApiKeySaving(true);
+
+    try {
+      await updateUserApiKey(apiKey);
+
+      toast({
+        title: "API Key Updated",
+        description: "Your API key has been saved successfully.",
+      });
+    } catch (error) {
+      console.error("Error saving API key:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save API key. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsApiKeySaving(false);
+    }
+  };
+
   // Show loading state
   if (loading && !user) {
     return (
@@ -129,6 +178,66 @@ export default function SettingsPage() {
         <p className="text-muted-foreground">Manage your unit preferences</p>
       </div>
 
+      {/* API Key Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>API Key</CardTitle>
+          <CardDescription>
+            Update Your ED forum API key. Your API key provides access to Ed
+            Forum services.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="grid gap-4">
+              <div className="flex space-x-2">
+                <div className="relative flex-grow">
+                  <Input
+                    type={showApiKey ? "text" : "password"}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="Enter your API key"
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                  >
+                    {showApiKey ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <Button
+                  onClick={handleSaveApiKey}
+                  disabled={
+                    isApiKeySaving ||
+                    updating ||
+                    apiKey === user?.apiKey ||
+                    !apiKey
+                  }
+                >
+                  {isApiKeySaving || updating ? (
+                    <>Saving</>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Save API Key
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Unit Selection Section */}
       <Card>
         <CardHeader>
           <CardTitle>Unit Selection</CardTitle>
