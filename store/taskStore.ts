@@ -56,7 +56,7 @@ interface TaskStore {
     userId: string,
     startDate: Date,
     endDate: Date
-  ) => Promise<TaskRun | null>;
+  ) => Promise<TaskRunStatusResponse>;
   pollTaskStatus: (
     transactionId: string,
     unitId: string,
@@ -151,16 +151,14 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       // Start polling automatically when a task is run
       get().pollTaskStatus(response.transactionId, unitId, userId);
 
-      // Since we don't have the full TaskRun object yet, return null
-      // The complete TaskRun will be available after polling completes
-      return null;
+      return response;
     } catch (error) {
       console.error("Error running task:", error);
       set({
         error: error instanceof Error ? error.message : "Failed to run task",
         loading: false,
       });
-      return null;
+      throw error;
     }
   },
   pollTaskStatus: async (

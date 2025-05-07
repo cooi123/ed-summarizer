@@ -64,26 +64,8 @@ export function UnitGenerateReportDialog({
   const unit = useUnitStore((state) => state.unit);
   const weeks = unit?.weeks || [];
 
-  // Get task-related functions from store
   const runTask = useTaskStore((state) => state.runTask);
 
-  // Helper function to parse dates safely
-  const parseDate = (dateInput: any): Date => {
-    if (dateInput instanceof Date) return dateInput;
-
-    try {
-      if (typeof dateInput === "string") {
-        const date = new Date(dateInput);
-        if (!isNaN(date.getTime())) {
-          return date;
-        }
-      }
-    } catch (e) {
-      console.error("Failed to parse date:", dateInput);
-    }
-
-    return new Date();
-  };
 
   // Sort weeks by number for display
   const sortedWeeks = [...weeks].sort((a, b) => a.weekNumber - b.weekNumber);
@@ -118,8 +100,8 @@ export function UnitGenerateReportDialog({
             return;
           }
 
-          startDate = parseDate(week.startDate);
-          endDate = parseDate(week.endDate);
+          startDate =week.startDate;
+          endDate = week.endDate;
           break;
 
         case "range":
@@ -158,8 +140,8 @@ export function UnitGenerateReportDialog({
             return;
           }
 
-          startDate = parseDate(startWeek.startDate);
-          endDate = parseDate(endWeek.endDate);
+          startDate = startWeek.startDate;
+          endDate = endWeek.endDate;
           break;
 
         case "all":
@@ -173,8 +155,8 @@ export function UnitGenerateReportDialog({
             return;
           }
 
-          startDate = parseDate(sortedWeeks[0].startDate);
-          endDate = parseDate(sortedWeeks[sortedWeeks.length - 1].endDate);
+          startDate = sortedWeeks[0].startDate
+          endDate = sortedWeeks[sortedWeeks.length - 1].endDate
           break;
 
         default:
@@ -188,6 +170,7 @@ export function UnitGenerateReportDialog({
 
       // Call runTask with the selected date range
       const taskResult = await runTask(unitId, user.id, startDate, endDate);
+      console.log('task result', taskResult)
 
       // Check if the task was created successfully
       if (taskResult) {
@@ -201,6 +184,7 @@ export function UnitGenerateReportDialog({
         if (onTaskStarted) {
           onTaskStarted();
         }
+        console.log('task started', taskResult)
 
         // Close the dialog
         onOpenChange(false);
@@ -294,11 +278,11 @@ export function UnitGenerateReportDialog({
                     {sortedWeeks.map((week) => (
                       <SelectItem
                         key={week.weekNumber}
-                        value={week.weekNumber.toString()}
+                        value={week.weekNumber?.toString() || ""}
                       >
                         Week {week.weekNumber}:{" "}
-                        {format(parseDate(week.startDate), "MMM d")} -{" "}
-                        {format(parseDate(week.endDate), "MMM d")}
+                        {format(week.startDate, "MMM d")} -{" "}
+                        {format(week.endDate, "MMM d")}
                       </SelectItem>
                     ))}
                   </SelectGroup>
@@ -326,10 +310,10 @@ export function UnitGenerateReportDialog({
                       {sortedWeeks.map((week) => (
                         <SelectItem
                           key={`start-${week.weekNumber}`}
-                          value={week.weekNumber.toString()}
+                          value={week.weekNumber?.toString() || ""}
                         >
                           Week {week.weekNumber}:{" "}
-                          {format(parseDate(week.startDate), "MMM d")}
+                          {format(week.startDate, "MMM d")}
                         </SelectItem>
                       ))}
                     </SelectGroup>
@@ -352,10 +336,10 @@ export function UnitGenerateReportDialog({
                       {sortedWeeks.map((week) => (
                         <SelectItem
                           key={`end-${week.weekNumber}`}
-                          value={week.weekNumber.toString()}
+                          value={week.weekNumber?.toString() || ""}
                         >
                           Week {week.weekNumber}:{" "}
-                          {format(parseDate(week.endDate), "MMM d")}
+                          {format(week.endDate, "MMM d")}
                         </SelectItem>
                       ))}
                     </SelectGroup>
@@ -369,9 +353,9 @@ export function UnitGenerateReportDialog({
             <div className="py-2 text-sm text-muted-foreground">
               This will generate a report covering all {sortedWeeks.length}{" "}
               weeks from{" "}
-              {format(parseDate(sortedWeeks[0].startDate), "MMMM d, yyyy")} to{" "}
+              {format(sortedWeeks[0].startDate, "MMMM d, yyyy")} to{" "}
               {format(
-                parseDate(sortedWeeks[sortedWeeks.length - 1].endDate),
+               sortedWeeks[sortedWeeks.length - 1].endDate,
                 "MMMM d, yyyy"
               )}
               .

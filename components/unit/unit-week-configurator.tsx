@@ -46,41 +46,9 @@ export function UnitWeekConfigurator({
   const [breakDuration, setBreakDuration] = useState(14); // Default 2 weeks (14 days) break
   const [isInitializing, setIsInitializing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  //fix date objects
-  // Add this helper function to safely parse dates
-  const parseDate = (dateInput: any): Date => {
-    if (dateInput instanceof Date) return dateInput;
 
-    try {
-      // For ISO strings (like 2025-05-02T22:00:00Z)
-      if (typeof dateInput === "string") {
-        // Create date object in local timezone
-        const date = new Date(dateInput);
-        if (!isNaN(date.getTime())) {
-          return date;
-        }
-      }
-    } catch (e) {
-      console.error("Failed to parse date:", dateInput);
-    }
 
-    return new Date(); // Fallback to current date
-  };
 
-  // Then modify your useEffect
-  useEffect(() => {
-    if (initialWeeks?.length > 0) {
-      const formattedWeeks = initialWeeks.map((week) => ({
-        ...week,
-        // Parse dates safely and ensure they're in local time
-        startDate: parseDate(week.startDate),
-        endDate: parseDate(week.endDate),
-      }));
-
-      console.log("Formatted weeks:", formattedWeeks);
-      setWeeks(formattedWeeks);
-    }
-  }, [initialWeeks]);
   // Get update status from store
   const isUpdating = useUnitStore((state) => state.isUpdating);
   const unit = useUnitStore((state) => state.unit);
@@ -124,24 +92,15 @@ export function UnitWeekConfigurator({
 
   const saveWeeks = async () => {
     if (isSaving || isUpdating) return;
-
     setIsSaving(true);
     try {
-      // Format dates to ensure they're Date objects
-      const formattedWeeks = weeks.map((week) => ({
-        ...week,
-        weekNumber: week.weekNumber,
-        startDate: new Date(week.startDate),
-        endDate: new Date(week.endDate),
-        content: week.content || "", // Ensure content exists
-      }));
-
-      await updateAllWeeks(unitId, formattedWeeks);
+      await updateAllWeeks(unitId, weeks);
 
       toast({
         title: "Weeks Updated",
         description: "Week configuration has been saved successfully.",
       });
+
     } catch (error) {
       console.error("Failed to save weeks:", error);
       toast({
@@ -149,6 +108,8 @@ export function UnitWeekConfigurator({
         description: "There was a problem saving the week configuration.",
         variant: "destructive",
       });
+
+
     } finally {
       setIsSaving(false);
     }

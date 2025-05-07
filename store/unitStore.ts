@@ -4,11 +4,12 @@ import { Unit, WeekConfig } from "@/types/unit";
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 
+
 // Common update function to be reused internally
 const performUpdate = async (
   unitId: string,
-  updates: Partial<Unit>,
-  onSuccess: (data: any) => void,
+  updates: Partial<Unit> | { weeks: WeekConfig[] },
+  onSuccess: (data: Unit) => void,
   onError: (error: Error) => void
 ) => {
   try {
@@ -16,9 +17,15 @@ const performUpdate = async (
       apiEndpoints.units.update(unitId),
       updates
     );
-
-    onSuccess(updatedData);
-    return updatedData;
+    //convert startDate and end date to date Object
+    const updatedWeeks = updatedData.weeks.map(week => ({
+      ...week,
+      startDate: new Date(week.startDate),
+      endDate: new Date(week.endDate)
+    } ));
+    onSuccess({...updatedData, weeks: updatedWeeks});
+    
+    return {...updatedData, weeks: updatedWeeks};
   } catch (error: any) {
     const errorMessage = error.message || "Failed to update unit data.";
     onError(new Error(errorMessage));
@@ -41,10 +48,6 @@ interface UnitState {
   updateUnitDetails: (
     details: Partial<Pick<Unit, "description" | "content" | "name">>
   ) => Promise<void>;
-  updateWeek: (
-    weekIndex: number,
-    weekData: Partial<WeekConfig>
-  ) => Promise<void>;
   updateAllWeeks: (weeks: WeekConfig[]) => Promise<void>;
 }
 
@@ -64,6 +67,13 @@ export const useUnitStore = create<UnitState>()(
         const unit = await apiService.get<Unit>(
           apiEndpoints.units.getById(unitId)
         );
+        if (unit.weeks) {
+          unit.weeks = unit.weeks.map(week => ({
+            ...week,
+            startDate: new Date(week.startDate),
+            endDate: new Date(week.endDate)
+          }));
+        }
         set({ unit, isLoading: false });
       } catch (error: any) {
         console.error("Failed to fetch unit:", error);
@@ -102,7 +112,7 @@ export const useUnitStore = create<UnitState>()(
           (updatedData) => {
             set((state) => {
               if (state.unit) {
-                Object.assign(state.unit, updatedData);
+                state.unit = updatedData;
               }
               state.isUpdating = false;
             });
@@ -119,54 +129,9 @@ export const useUnitStore = create<UnitState>()(
       }
     },
 
-    updateWeek: async (weekIndex, weekData) => {
-      if (get().isUpdating) return;
-      const currentUnit = get().unit;
-      if (!currentUnit) {
-        set({ error: "Cannot update week: Unit not loaded." });
-        return;
-      }
-
-      if (weekIndex < 0 || weekIndex >= currentUnit.weeks.length) {
-        set({ error: `Week index ${weekIndex} is out of bounds.` });
-        return;
-      }
-
-      set({ isUpdating: true, error: null });
-
-      try {
-        // Create a deep copy of the weeks array with the update applied to the specific week
-        const updatedWeeks = currentUnit.weeks.map((week, idx) =>
-          idx === weekIndex ? { ...week, ...weekData } : week
-        );
-
-        await performUpdate(
-          currentUnit.id,
-          { weeks: updatedWeeks },
-          (updatedData) => {
-            set((state) => {
-              if (state.unit && updatedData.weeks) {
-                state.unit.weeks = updatedData.weeks;
-              }
-              state.isUpdating = false;
-            });
-          },
-          (error) => {
-            set({
-              isUpdating: false,
-              error: error.message,
-            });
-          }
-        );
-      } catch (error: any) {
-        console.error(`Failed to update week ${weekIndex}:`, error);
-      }
-    },
-
     updateAllWeeks: async (newWeeks) => {
       if (get().isUpdating) return;
       const currentUnit = get().unit;
-      console.log("Current Unit:", currentUnit);
       if (!currentUnit) {
         set({ error: "Cannot update weeks: Unit not loaded." });
         return;
@@ -180,8 +145,8 @@ export const useUnitStore = create<UnitState>()(
           { weeks: newWeeks },
           (updatedData) => {
             set((state) => {
-              if (state.unit && updatedData.weeks) {
-                state.unit.weeks = updatedData.weeks;
+              if (state.unit) {
+                state.unit = updatedData;
               }
               state.isUpdating = false;
             });
@@ -212,17 +177,6 @@ export const updateUnitDetails = async (
   return store.updateUnitDetails(details);
 };
 
-export const updateWeek = async (
-  unitId: string,
-  weekIndex: number,
-  weekData: Partial<WeekConfig>
-): Promise<void> => {
-  const store = useUnitStore.getState();
-  if (store.unit?.id !== unitId) {
-    await store.fetchUnit(unitId);
-  }
-  return store.updateWeek(weekIndex, weekData);
-};
 
 export const updateAllWeeks = async (
   unitId: string,
