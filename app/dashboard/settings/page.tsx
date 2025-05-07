@@ -16,6 +16,7 @@ import { UnitSync } from "@/types/user";
 import { useAuth } from "@/store/auth-provider";
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff, Save } from "lucide-react";
+import { apiService } from "@/lib/api";
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -37,6 +38,7 @@ export default function SettingsPage() {
   const [apiKey, setApiKey] = useState("");
   const [isApiKeySaving, setIsApiKeySaving] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
 
   // Get available units and currently selected unit IDs from user store
   const availableUnits = user?.availableUnits || [];
@@ -137,10 +139,19 @@ export default function SettingsPage() {
       });
       return;
     }
-
-    setIsApiKeySaving(true);
-
+    setApiKeyError(null);
+    //test the api key using ed forum route   
     try {
+      const testApiKey = await apiService.post<{ valid: boolean }, { apiKey: string }>('/proxy/ed-forum/validate-key', {
+        apiKey
+      });
+      
+      if (!testApiKey.valid) {
+        setApiKeyError("Invalid API key. Please check and try again.");
+        return;
+      }
+      setIsApiKeySaving(true);
+
       await updateUserApiKey(apiKey);
 
       toast({
@@ -149,11 +160,7 @@ export default function SettingsPage() {
       });
     } catch (error) {
       console.error("Error saving API key:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save API key. Please try again.",
-        variant: "destructive",
-      });
+      setApiKeyError("Failed to validate API key. Please try again.");
     } finally {
       setIsApiKeySaving(false);
     }
@@ -195,9 +202,12 @@ export default function SettingsPage() {
                   <Input
                     type={showApiKey ? "text" : "password"}
                     value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
+                    onChange={(e) => {
+                      setApiKey(e.target.value);
+                      setApiKeyError(null); // Clear error when user types
+                    }}
                     placeholder="Enter your API key"
-                    className="pr-10"
+                    className={`pr-10 ${apiKeyError ? 'border-red-500' : ''}`}
                   />
                   <Button
                     type="button"
@@ -232,6 +242,9 @@ export default function SettingsPage() {
                   )}
                 </Button>
               </div>
+              {apiKeyError && (
+                <p className="text-sm text-red-500 mt-1">{apiKeyError}</p>
+              )}
             </div>
           </div>
         </CardContent>
@@ -272,9 +285,19 @@ export default function SettingsPage() {
             ))}
 
             {availableUnits.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No units available. Please contact your administrator.
-              </p>
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  No units available. This could be because:
+                </p>
+                <ul className="list-disc pl-5 text-sm text-muted-foreground">
+                  <li>Your API key hasn't been provided or is invalid</li>
+                  <li>You don't have access to any units</li>
+                  <li>There was an error fetching your units</li>
+                </ul>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Please check your API key above and try again.
+                </p>
+              </div>
             )}
 
             <div className="pt-6">
@@ -284,7 +307,7 @@ export default function SettingsPage() {
                   isSaving ||
                   updating ||
                   JSON.stringify(localSelectedUnits.sort()) ===
-                    JSON.stringify(selectedUnitIds.sort())
+                  JSON.stringify(selectedUnitIds.sort())
                 }
               >
                 {isSaving || updating ? "Saving..." : "Save Preferences"}
