@@ -97,7 +97,7 @@ export function QuestionClusterGroup({ unit }: { unit: Unit }) {
       </div>
 
       <div className="space-y-4">
-        {clusters.map((cluster) => (
+        {clusters.length>0?clusters.map((cluster) => (
           <QuestionGroup
             key={cluster.theme}
             theme={cluster.theme}
@@ -109,7 +109,7 @@ export function QuestionClusterGroup({ unit }: { unit: Unit }) {
 
             
           />
-        ))}
+        )): <div>No clusters found! Please generate weekly analysis first.</div>}
       </div>
     </div>
   );
