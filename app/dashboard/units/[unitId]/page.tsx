@@ -1,19 +1,16 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { RefreshCw, Clock, History, Settings } from "lucide-react";
+import {  Settings, MessageSquare, HelpCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTaskStore } from "@/store/taskStore";
 import { useToast } from "@/hooks/use-toast";
 import { UnitSettings } from "@/components/unit/unit-settings";
 import useUserStore from "@/store/userStore";
 import { useUnitStore } from "@/store/unitStore";
-import { UnitGenerateReportDialog } from "@/components/unit/unit-generate-report-dialog";
 import { UnitWeeklyFAQ } from "@/components/unit/faq-generator/unit-weekly-faq-tab";
 import { TaskProgressBar } from "@/components/unit/unit-task-progress-bar";
-import { QuestionGroup } from "@/components/unit/question-group";
-// import { ThreadManagement } from "@/components/unit/thread-management";
+import { QuestionClusterGroup } from "@/components/unit/question-cluster/question-cluster-group";
 
 export default function UnitPage() {
   const params = useParams();
@@ -21,16 +18,9 @@ export default function UnitPage() {
   const { toast } = useToast();
   const unitId = params.unitId as string;
   const { user } = useUserStore();
-  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
 
-  // State for UI
-  const [activeTab, setActiveTab] = useState("current");
-  const [selectedHistoryRun, setSelectedHistoryRun] = useState<string | null>(
-    null
-  );
-  const [taskRunning, setTaskRunning] = useState(false);
-  const [historyRunning, setHistoryRunning] = useState(false);
-
+  const [activeTab, setActiveTab] = useState("question-clusters");
+ 
   // Get unit data from store - memoized selector to avoid infinite loops
   const unit = useUnitStore((state) => state.unit);
   const unitLoading = useUnitStore((state) => state.isLoading);
@@ -90,12 +80,6 @@ export default function UnitPage() {
     }
   }, [unitError, toast]);
 
-  // Handler for when task is started from the dialog
-  const handleTaskStarted = () => {
-    setActiveTab("current");
-    setSelectedHistoryRun(null);
-    setTaskRunning(true);
-  };
 
   // Show loading state
   if (unitLoading || tasksLoading) {
@@ -134,13 +118,6 @@ export default function UnitPage() {
         </div>
       </div>
 
-      {/* Report Generation Dialog */}
-      <UnitGenerateReportDialog
-        unitId={unitId}
-        isOpen={isReportDialogOpen}
-        onOpenChange={setIsReportDialogOpen}
-        onTaskStarted={handleTaskStarted}
-      />
       {polling && <TaskProgressBar />}
       <Tabs
         defaultValue="current"
@@ -149,24 +126,15 @@ export default function UnitPage() {
       >
         <TabsList>
           <TabsTrigger
-            value="current"
-            disabled={taskRunning}
+            value="question-clusters" 
           >
-            {taskRunning ? (
-              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Clock className="mr-2 h-4 w-4" />
-            )}
+        <MessageSquare className="h-5 w-5" />
+            Question Clusters
           </TabsTrigger>
           <TabsTrigger
-            value="history"
-            disabled={historyRunning}
+            value="weekly-faq"
           >
-            {historyRunning ? (
-              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <History className="mr-2 h-4 w-4" />
-            )}
+          <HelpCircle className="h-5 w-5" />
             Generate Weekly FAQ
           </TabsTrigger>
           <TabsTrigger value="settings">
@@ -175,43 +143,14 @@ export default function UnitPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="current" className="space-y-4">
-          {/* <ThreadManagement courseId={unitId} /> */}
-          <QuestionGroup
-            theme="Lab Exercises and Clarifications"
-            questions={[
-              {
-                id: "q1",
-                title: "Question Title",
-                content: "Question content...",
-              },
-              {
-                id: "q2",
-                title: "Question Title",
-                content: "Question content...",
-              },
-              {
-                id: "q3",
-                title: "Question Title",
-                content: "Question content...",
-              },
-              // ... more questions
-            ]}
-            onAnswer={(questionId) => {
-              // Handle answer action
-            }}
-            onFlag={(questionId) => {
-              // Handle flag action
-            }}
-          />
+        <TabsContent value="question-clusters" className="space-y-4">
+          <QuestionClusterGroup unit={unit} />
         </TabsContent>
 
-        <TabsContent value="history" className="space-y-4">
+        <TabsContent value="weekly-faq" className="space-y-4">
           <UnitWeeklyFAQ
             taskRuns={taskRuns}
             unit={unit}
-            onWeeklyReportStart={() => setHistoryRunning(true)}
-            onWeeklyReportEnd={() => setHistoryRunning(false)}
           />
         </TabsContent>
 
