@@ -33,7 +33,6 @@ export default function SettingsPage() {
   // Local state for managing unit selections before saving
   const [localSelectedUnits, setLocalSelectedUnits] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-
   // API Key states
   const [apiKey, setApiKey] = useState("");
   const [isApiKeySaving, setIsApiKeySaving] = useState(false);
@@ -45,17 +44,16 @@ export default function SettingsPage() {
 
   // Get selected unit IDs for easier comparison
   const selectedUnitIds =
-    user?.selectedUnits?.map((unit) => unit.unit_id) || [];
+    user?.selectedUnits?.map((unit) => unit.id.toString()) || [];
 
   // Fetch user data once when component mounts
   useEffect(() => {
     // Store email in a variable to prevent it from changing in the dependency array
     const email = authUser?.email || "";
 
-    // Only fetch if email exists and user data isn't already loaded
-    if (email && !user) {
-      fetchUser(email);
-    }
+    fetchUser(email);
+    console.log("user", user)
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -77,11 +75,12 @@ export default function SettingsPage() {
   }, [user]);
 
   // Handle local toggle of units
-  const handleToggleUnit = (unitId: string) => {
+  const handleToggleUnit = (unitId: number) => {
+    const unitIdStr = unitId.toString();
     setLocalSelectedUnits((prev) =>
-      prev.includes(unitId)
-        ? prev.filter((id) => id !== unitId)
-        : [...prev, unitId]
+      prev.includes(unitIdStr)
+        ? prev.filter((id) => id !== unitIdStr)
+        : [...prev, unitIdStr]
     );
   };
 
@@ -99,15 +98,17 @@ export default function SettingsPage() {
     setIsSaving(true);
 
     try {
-      // Transform string IDs into UnitSync objects
+      // Transform string IDs into UnitSync objects by finding the full unit data
       const selectedUnitObjects: UnitSync[] = localSelectedUnits.map(
-        (unitId) => ({
-          unit_id: unitId,
-          // Preserve last_sync value if unit was previously selected
-          last_sync:
-            user.selectedUnits.find((u) => u.unit_id === unitId)?.last_sync ||
-            null,
-        })
+        (unitId) => {
+          const unit = user.availableUnits.find(
+            (u) => u.id.toString() === unitId
+          );
+          if (!unit) {
+            throw new Error(`Unit with ID ${unitId} not found in available units`);
+          }
+          return unit;
+        }
       );
 
       // Update the user in store (which will update the backend)
@@ -145,7 +146,7 @@ export default function SettingsPage() {
       const testApiKey = await apiService.post<{ valid: boolean }, { apiKey: string }>('/proxy/ed-forum/validate-key', {
         apiKey
       });
-      
+
       if (!testApiKey.valid) {
         setApiKeyError("Invalid API key. Please check and try again.");
         return;
@@ -266,13 +267,13 @@ export default function SettingsPage() {
                 className="flex items-start space-x-3 space-y-0"
               >
                 <Checkbox
-                  id={unit.id}
-                  checked={localSelectedUnits.includes(unit.id)}
+                  id={unit.id.toString()}
+                  checked={localSelectedUnits.includes(unit.id.toString())}
                   onCheckedChange={() => handleToggleUnit(unit.id)}
                 />
                 <div className="grid gap-1.5 leading-none">
                   <label
-                    htmlFor={unit.id}
+                    htmlFor={unit.id.toString()}
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
                     {unit.code}: {unit.name}

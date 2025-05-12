@@ -13,11 +13,7 @@ import useUserStore from "@/store/userStore";
 
 export default function UnitsPage() {
   const { user } = useUserStore();
-  const selectedUnitIds = user?.selectedUnits || [];
-  const availableUnits = user?.availableUnits || [];
-  const selectedUnits = availableUnits.filter((unit) =>
-    selectedUnitIds.some((selectedUnit) => selectedUnit.unit_id === unit.id)
-  );
+  const selectedUnits = user?.selectedUnits || [];
 
   // Show empty state if no units are selected
   if (selectedUnits.length === 0) {
