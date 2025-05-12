@@ -54,3 +54,22 @@ export const downloadReport = (content: string, name: string) => {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 };
+
+
+  // Helper function to safely parse dates
+  export const parseDate = (dateInput: any): Date => {
+    if (dateInput instanceof Date) return dateInput;
+
+    try {
+      if (typeof dateInput === "string") {
+        const date = new Date(dateInput);
+        if (!isNaN(date.getTime())) {
+          return date;
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse date:", dateInput);
+    }
+
+    return new Date();
+  };

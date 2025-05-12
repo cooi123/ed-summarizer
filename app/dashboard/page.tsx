@@ -16,11 +16,7 @@ import useUserStore from "@/store/userStore";
 
 export default function Dashboard() {
   const { user, loading, updating, fetchUser } = useUserStore();
-  const selectedUnitIds = user?.selectedUnits || [];
-  const availableUnits = user?.availableUnits || [];
-  const selectedUnits = availableUnits.filter((unit) =>
-    selectedUnitIds.some((selectedUnit) => selectedUnit.unit_id === unit.id)
-  );
+  const selectedUnits = user?.selectedUnits || [];
 
   return (
     <div className="space-y-6">

@@ -101,24 +101,30 @@ const useUserStore = create<UserState>()(
 
         // Check if unit is already selected
         const alreadySelected = user.selectedUnits.some(
-          (unit) => unit.unit_id === unitId
+          (unit) => unit.id.toString() === unitId
         );
 
         if (alreadySelected) {
           return; // Unit is already selected, no need to update
         }
 
+        // Find the unit in available units
+        const unitToAdd = user.availableUnits.find(
+          (unit) => unit.id.toString() === unitId
+        );
+
+        if (!unitToAdd) {
+          throw new Error("Unit not found in available units");
+        }
+
         // Create new selectedUnits array with the new unit
-        const updatedSelectedUnits = [
-          ...user.selectedUnits,
-          { unit_id: unitId, last_sync: null },
-        ];
+        const updatedSelectedUnits = [...user.selectedUnits, unitToAdd];
 
         // Update user with new selected units
         await updateUser({ selectedUnits: updatedSelectedUnits });
       },
 
-      // Rest of your code stays the same
+      // Remove a unit from selected units
       removeSelectedUnit: async (unitId: string) => {
         const { user, updateUser } = get();
 
@@ -127,14 +133,31 @@ const useUserStore = create<UserState>()(
         }
 
         const updatedSelectedUnits = user.selectedUnits.filter(
-          (unit) => unit.unit_id !== unitId
+          (unit) => unit.id.toString() !== unitId
         );
 
         await updateUser({ selectedUnits: updatedSelectedUnits });
       },
 
       updateSelectedUnits: async (selectedUnits: UnitSync[]) => {
-        const { updateUser } = get();
+        const { user, updateUser } = get();
+
+        if (!user) {
+          throw new Error("No user data found");
+        }
+
+        // Transform UnitSync objects into the format expected by the API
+        const apiSelectedUnits = selectedUnits.map(unit => (
+          unit.id
+        ));
+
+        // Make the API call to update selected units
+        await apiService.patch(
+          apiEndpoints.user.updateSelectedUnits(user.id),
+          { selectedUnits: apiSelectedUnits }
+        );
+
+        // Update the local store with the full unit data
         await updateUser({ selectedUnits });
       },
 
