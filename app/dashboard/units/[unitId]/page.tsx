@@ -10,8 +10,10 @@ import { UnitSettings } from "@/components/unit/unit-settings";
 import useUserStore from "@/store/userStore";
 import { useUnitStore } from "@/store/unitStore";
 import { UnitGenerateReportDialog } from "@/components/unit/unit-generate-report-dialog";
-import { UnitReportHistory } from "@/components/unit/unit-report-history";
+import { UnitWeeklyFAQ } from "@/components/unit/faq-generator/unit-weekly-faq-tab";
 import { TaskProgressBar } from "@/components/unit/unit-task-progress-bar";
+import { QuestionGroup } from "@/components/unit/question-group";
+// import { ThreadManagement } from "@/components/unit/thread-management";
 
 export default function UnitPage() {
   const params = useParams();
@@ -27,6 +29,7 @@ export default function UnitPage() {
     null
   );
   const [taskRunning, setTaskRunning] = useState(false);
+  const [historyRunning, setHistoryRunning] = useState(false);
 
   // Get unit data from store - memoized selector to avoid infinite loops
   const unit = useUnitStore((state) => state.unit);
@@ -40,7 +43,6 @@ export default function UnitPage() {
   const taskError = useTaskStore((state) => state.error);
   const getTaskRuns = useTaskStore((state) => state.getTaskRuns);
   const polling = useTaskStore((state) => state.polling);
-
   // Fetch unit data on mount
   useEffect(() => {
     fetchUnit(unitId);
@@ -65,6 +67,7 @@ export default function UnitPage() {
     }
   }, [unit, unitLoading, unitError, toast, router]);
 
+  console.log(unit)
   // Handle errors from TaskStore
   useEffect(() => {
     if (taskError) {
@@ -129,18 +132,6 @@ export default function UnitPage() {
             {unit.year} - {unit.session}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={() => setIsReportDialogOpen(true)}
-            disabled={taskRunning}
-            variant="outline"
-          >
-            <RefreshCw
-              className={`mr-2 h-4 w-4 ${taskRunning ? "animate-spin" : ""}`}
-            />
-            {taskRunning ? "Generating..." : "Generate Report"}
-          </Button>
-        </div>
       </div>
 
       {/* Report Generation Dialog */}
@@ -157,13 +148,26 @@ export default function UnitPage() {
         onValueChange={setActiveTab}
       >
         <TabsList>
-          <TabsTrigger value="current">
-            <Clock className="mr-2 h-4 w-4" />
-            {selectedHistoryRun ? "Historical Report" : "Current Report"}
+          <TabsTrigger
+            value="current"
+            disabled={taskRunning}
+          >
+            {taskRunning ? (
+              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Clock className="mr-2 h-4 w-4" />
+            )}
           </TabsTrigger>
-          <TabsTrigger value="history">
-            <History className="mr-2 h-4 w-4" />
-            Report History ({taskRuns.length})
+          <TabsTrigger
+            value="history"
+            disabled={historyRunning}
+          >
+            {historyRunning ? (
+              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <History className="mr-2 h-4 w-4" />
+            )}
+            Generate Weekly FAQ
           </TabsTrigger>
           <TabsTrigger value="settings">
             <Settings className="mr-2 h-4 w-4" />
@@ -171,10 +175,44 @@ export default function UnitPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="current" className="space-y-4"></TabsContent>
+        <TabsContent value="current" className="space-y-4">
+          {/* <ThreadManagement courseId={unitId} /> */}
+          <QuestionGroup
+            theme="Lab Exercises and Clarifications"
+            questions={[
+              {
+                id: "q1",
+                title: "Question Title",
+                content: "Question content...",
+              },
+              {
+                id: "q2",
+                title: "Question Title",
+                content: "Question content...",
+              },
+              {
+                id: "q3",
+                title: "Question Title",
+                content: "Question content...",
+              },
+              // ... more questions
+            ]}
+            onAnswer={(questionId) => {
+              // Handle answer action
+            }}
+            onFlag={(questionId) => {
+              // Handle flag action
+            }}
+          />
+        </TabsContent>
 
         <TabsContent value="history" className="space-y-4">
-          <UnitReportHistory taskRuns={taskRuns} unit={unit} />
+          <UnitWeeklyFAQ
+            taskRuns={taskRuns}
+            unit={unit}
+            onWeeklyReportStart={() => setHistoryRunning(true)}
+            onWeeklyReportEnd={() => setHistoryRunning(false)}
+          />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-6">
