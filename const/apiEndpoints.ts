@@ -17,6 +17,7 @@ export const apiEndpoints = {
     update: (unitId: string) => `/units/${unitId}`,
     getThreads: (unitId: string) => `/units/${unitId}/threads`,
     syncThreads: (unitId: string, userId: string) => `/units/${unitId}/sync-threads?user_id=${userId}`,
+    getWeeklyData: (unitId: string) => `/units/${unitId}/weeks`,
 
     getQuestionClusters: (unitId: string) => `/question-clusters/units/${unitId}/clusters`,
   },
