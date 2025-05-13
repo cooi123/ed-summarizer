@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/store/auth-provider";
 import { DashboardNav } from "@/components/dashboard-nav";
 import { UserNav } from "@/components/user-nav";
+import useUserStore from "@/store/userStore";
 
 export default function DashboardLayout({
   children,
@@ -15,6 +16,12 @@ export default function DashboardLayout({
 }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  //once user is login then trigger refetch for userStore
+  useEffect(() => {
+    if (!isLoading && user) {
+      useUserStore.getState().fetchUser(user.email);
+    }
+  }, [user, isLoading]);
 
   useEffect(() => {
     if (!isLoading && !user) {
