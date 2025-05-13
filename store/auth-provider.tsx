@@ -6,6 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { User } from "@/types/user";
+import useUserStore from "./userStore";
 
 type AuthState = {
   user: User | null;
@@ -89,6 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     setUser(null);
+    useUserStore.getState().clearUserData();
     router.push("/");
   };
 
