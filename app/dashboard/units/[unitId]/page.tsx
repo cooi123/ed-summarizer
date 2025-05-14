@@ -11,6 +11,8 @@ import { useUnitStore } from "@/store/unitStore";
 import { UnitWeeklyFAQ } from "@/components/unit/faq-generator/unit-weekly-faq-tab";
 import { TaskProgressBar } from "@/components/unit/unit-task-progress-bar";
 import { QuestionClusterGroup } from "@/components/unit/question-cluster/question-cluster-group";
+import { SemesterSelectionDialog } from "@/components/unit/semester-selection-dialog";
+import { WeekConfig } from "@/types/unit";
 
 export default function UnitPage() {
   const params = useParams();
@@ -20,6 +22,7 @@ export default function UnitPage() {
   const { user } = useUserStore();
 
   const [activeTab, setActiveTab] = useState("question-clusters");
+  const [showSemesterDialog, setShowSemesterDialog] = useState(false);
  
   // Get unit data from store - memoized selector to avoid infinite loops
   const unit = useUnitStore((state) => state.unit);
@@ -33,6 +36,14 @@ export default function UnitPage() {
   const taskError = useTaskStore((state) => state.error);
   const getTaskRuns = useTaskStore((state) => state.getTaskRuns);
   const polling = useTaskStore((state) => state.polling);
+
+  // Show semester dialog if unit has no weeks
+  useEffect(() => {
+    if (unit && (!unit.weeks || unit.weeks.length === 0)) {
+      setShowSemesterDialog(true);
+    }
+  }, [unit]);
+
   // Fetch unit data on mount
   useEffect(() => {
     fetchUnit(unitId);
@@ -57,7 +68,6 @@ export default function UnitPage() {
     }
   }, [unit, unitLoading, unitError, toast, router]);
 
-  console.log(unit)
   // Handle errors from TaskStore
   useEffect(() => {
     if (taskError) {
@@ -80,6 +90,10 @@ export default function UnitPage() {
     }
   }, [unitError, toast]);
 
+  const handleWeeksGenerated = (weeks: WeekConfig[]) => {
+    // Refresh unit data to get the updated weeks
+    fetchUnit(unitId);
+  };
 
   // Show loading state
   if (unitLoading || tasksLoading) {
@@ -128,13 +142,13 @@ export default function UnitPage() {
           <TabsTrigger
             value="question-clusters" 
           >
-        <MessageSquare className="h-5 w-5" />
+            <MessageSquare className="h-5 w-5" />
             Question Clusters
           </TabsTrigger>
           <TabsTrigger
             value="weekly-faq"
           >
-          <HelpCircle className="h-5 w-5" />
+            <HelpCircle className="h-5 w-5" />
             Generate Weekly FAQ
           </TabsTrigger>
           <TabsTrigger value="settings">
@@ -158,6 +172,13 @@ export default function UnitPage() {
           <UnitSettings unit={unit} unitId={unitId} />
         </TabsContent>
       </Tabs>
+
+      <SemesterSelectionDialog
+        isOpen={showSemesterDialog}
+        onOpenChange={setShowSemesterDialog}
+        unitId={unitId}
+        onWeeksGenerated={handleWeeksGenerated}
+      />
     </div>
   );
 }

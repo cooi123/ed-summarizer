@@ -55,6 +55,7 @@ const useUserStore = create<UserState>()(
                 ? error.message
                 : "Failed to fetch user data",
             loading: false,
+            user: null,
           });
         }
       },
