@@ -57,7 +57,6 @@ export default function UnitPage() {
     }
   }, [unit, unitLoading, unitError, toast, router]);
 
-  console.log(unit)
   // Handle errors from TaskStore
   useEffect(() => {
     if (taskError) {

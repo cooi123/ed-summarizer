@@ -7,6 +7,7 @@ export function LoginForm() {
   return (
 
         <SignIn 
+          forceRedirectUrl="/dashboard"
           appearance={{
             elements: {
               formButtonPrimary: 

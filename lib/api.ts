@@ -32,8 +32,9 @@ const api: AxiosInstance = axios.create({
 
 // Add request interceptor
 api.interceptors.request.use(
-  (config) => {
-    const token = getAuthToken();
+  async (config) => {
+    // Get fresh token for each request
+    const token = await getAuthToken();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -44,14 +45,32 @@ api.interceptors.request.use(
   }
 );
 
+// Add response interceptor to handle token expiration
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      // Clear the expired token
+      setAuthToken(null);
+      window.location.href = '/signin';
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Create a hook to sync Clerk token with localStorage
 export const useSyncAuthToken = () => {
   const { getToken } = useAuth();
 
   useEffect(() => {
     const syncToken = async () => {
-      const token = await getToken();
-      setAuthToken(token);
+      try {
+        const token = await getToken();
+        setAuthToken(token);
+      } catch (error) {
+        console.error('Error syncing auth token:', error);
+        setAuthToken(null);
+      }
     };
 
     syncToken();

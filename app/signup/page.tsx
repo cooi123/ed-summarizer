@@ -11,7 +11,6 @@ export default function SignupPage() {
   const { user:clerkUser } = useUser();
   const { fetchUser, needsSignup } = useUserStore();
   const router = useRouter();
-
   if (!clerkUser) {
     router.push("/");
     return null;
