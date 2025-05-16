@@ -6,9 +6,9 @@ import { getTaskById } from "@/lib/units";
 export const apiEndpoints = {
   // User endpoints
   user: {
-    get: (email: string) => `/users/?email=${email}`,
-    update: (userId: string) => `/users/${userId}`,
-    updateSelectedUnits: (userId: string) => `/users/${userId}/selected-units`,
+    get: () => `/users/me`,
+    update: () => `/users/me`,
+    updateSelectedUnits: () => `/users/me/selected-units`,
   },
 
   // Unit endpoints

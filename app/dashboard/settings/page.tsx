@@ -13,14 +13,13 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import useUserStore from "@/store/userStore";
 import { UnitSync } from "@/types/user";
-import { useAuth } from "@/store/auth-provider";
+import { useUser } from "@clerk/nextjs";
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff, Save } from "lucide-react";
 import { apiService } from "@/lib/api";
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const { user: authUser } = useAuth();
   const {
     user,
     loading,
@@ -38,7 +37,6 @@ export default function SettingsPage() {
   const [isApiKeySaving, setIsApiKeySaving] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [apiKeyError, setApiKeyError] = useState<string | null>(null);
-
   // Get available units and currently selected unit IDs from user store
   const availableUnits = user?.availableUnits || [];
 
@@ -46,16 +44,11 @@ export default function SettingsPage() {
   const selectedUnitIds =
     user?.selectedUnits?.map((unit) => unit.id.toString()) || [];
 
-  // Fetch user data once when component mounts
-  useEffect(() => {
-    // Store email in a variable to prevent it from changing in the dependency array
-    const email = authUser?.email || "";
-
-    fetchUser(email);
-    console.log("user", user)
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // // Fetch user data once when component mounts
+  // useEffect(() => {
+  //   fetchUser();
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [user]);
 
   // Initialize local state with the store's selected units when user data changes
   useEffect(() => {
