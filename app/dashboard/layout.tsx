@@ -1,14 +1,12 @@
 "use client";
 
 import type React from "react";
-
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { DashboardNav } from "@/components/dashboard-nav";
 import { UserNav } from "@/components/user-nav";
 import useUserStore from "@/store/userStore";
-import { useSyncAuthToken } from "@/lib/api";
 
 export default function DashboardLayout({
   children,
@@ -18,23 +16,27 @@ export default function DashboardLayout({
   const { user, isLoaded } = useUser();
   const router = useRouter();
   const { fetchUser, needsSignup, loading } = useUserStore();
+  const [isChecking, setIsChecking] = useState(true);
   
-  // Sync Clerk token with localStorage
-  useSyncAuthToken();
 
   useEffect(() => {
-    if (isLoaded) {
-      if (!user) {
-        router.push("/");
-      } else if (needsSignup) {
-        router.push("/signup");
-      } else {
-        fetchUser();
+    const checkUser = async () => {
+      if (isLoaded) {
+        if (!user) {
+          router.push("/");
+        } else if (needsSignup) {
+          router.push("/signup");
+        } else {
+          await fetchUser();
+        }
+        setIsChecking(false);
       }
-    }
+    };
+    checkUser();
   }, [user, isLoaded, needsSignup, router, fetchUser]);
 
-  if (!isLoaded || loading) {
+  // Show loading state while checking
+  if (!isLoaded || loading || isChecking) {
     return (
       <div className="flex h-screen items-center justify-center">
         Loading...
@@ -42,6 +44,7 @@ export default function DashboardLayout({
     );
   }
 
+  // Don't render anything if no user
   if (!user) {
     return null;
   }

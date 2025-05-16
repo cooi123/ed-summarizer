@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 import { Providers } from "./providers";
 import { ClerkProvider } from '@clerk/nextjs'
+import { TokenUpdater } from "./components/TokenUpdater";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,6 +26,7 @@ export default function RootLayout({
         <body className={inter.className}>
           <Providers>
             <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+              <TokenUpdater />
               {children}
               <Toaster />
             </ThemeProvider>

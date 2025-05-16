@@ -1,6 +1,4 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
-import { useAuth } from "@clerk/nextjs";
-import { useEffect } from "react";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
@@ -8,7 +6,10 @@ const BASE_URL =
 // Token management utilities
 export const TOKEN_KEY = "auth_token";
 
+let currentToken: string | null = null;
+
 export const setAuthToken = (token: string | null) => {
+  currentToken = token;
   if (token) {
     localStorage.setItem(TOKEN_KEY, token);
   } else {
@@ -17,7 +18,7 @@ export const setAuthToken = (token: string | null) => {
 };
 
 export const getAuthToken = () => {
-  return localStorage.getItem(TOKEN_KEY);
+  return currentToken || localStorage.getItem(TOKEN_KEY);
 };
 
 // Create the base axios instance
@@ -33,8 +34,7 @@ const api: AxiosInstance = axios.create({
 // Add request interceptor
 api.interceptors.request.use(
   async (config) => {
-    // Get fresh token for each request
-    const token = await getAuthToken();
+    const token = getAuthToken();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -58,24 +58,6 @@ api.interceptors.response.use(
   }
 );
 
-// Create a hook to sync Clerk token with localStorage
-export const useSyncAuthToken = () => {
-  const { getToken } = useAuth();
-
-  useEffect(() => {
-    const syncToken = async () => {
-      try {
-        const token = await getToken();
-        setAuthToken(token);
-      } catch (error) {
-        console.error('Error syncing auth token:', error);
-        setAuthToken(null);
-      }
-    };
-
-    syncToken();
-  }, [getToken]);
-};
 
 export const apiService = {
   /**

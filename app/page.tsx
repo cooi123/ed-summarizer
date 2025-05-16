@@ -8,7 +8,7 @@ export default async function Home() {
   const user = await currentUser();
   
   if (user) {
-    redirect("/signup");
+    redirect("/dashboard");
   }
 
   return (
