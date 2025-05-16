@@ -1,8 +1,26 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
+import { useAuth } from "@clerk/nextjs";
+import { useEffect } from "react";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
+// Token management utilities
+export const TOKEN_KEY = "auth_token";
+
+export const setAuthToken = (token: string | null) => {
+  if (token) {
+    localStorage.setItem(TOKEN_KEY, token);
+  } else {
+    localStorage.removeItem(TOKEN_KEY);
+  }
+};
+
+export const getAuthToken = () => {
+  return localStorage.getItem(TOKEN_KEY);
+};
+
+// Create the base axios instance
 const api: AxiosInstance = axios.create({
   baseURL: BASE_URL,
   timeout: 15000, // 15 seconds
@@ -12,22 +30,52 @@ const api: AxiosInstance = axios.create({
   },
 });
 
+// Add request interceptor
 api.interceptors.request.use(
-  (config) => {
-    // Get the token from localStorage
-    const token = localStorage.getItem("token");
-
-    // If token exists, add it to the request header
+  async (config) => {
+    // Get fresh token for each request
+    const token = await getAuthToken();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-
     return config;
   },
   (error) => {
     return Promise.reject(error);
   }
 );
+
+// Add response interceptor to handle token expiration
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      // Clear the expired token
+      setAuthToken(null);
+      window.location.href = '/signin';
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Create a hook to sync Clerk token with localStorage
+export const useSyncAuthToken = () => {
+  const { getToken } = useAuth();
+
+  useEffect(() => {
+    const syncToken = async () => {
+      try {
+        const token = await getToken();
+        setAuthToken(token);
+      } catch (error) {
+        console.error('Error syncing auth token:', error);
+        setAuthToken(null);
+      }
+    };
+
+    syncToken();
+  }, [getToken]);
+};
 
 export const apiService = {
   /**

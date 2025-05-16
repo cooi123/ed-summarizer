@@ -173,8 +173,22 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     // Set polling to true
     set({ polling: true });
 
+    // Set start time for timeout
+    const startTime = Date.now();
+    const MAX_POLLING_DURATION = 2 * 60 * 1000; // 2 minutes in milliseconds
+
     const checkStatus = async () => {
       if (!get().polling) return; // Exit if polling has been stopped
+
+      // Check if we've exceeded the maximum polling duration
+      if (Date.now() - startTime > MAX_POLLING_DURATION) {
+        set({ 
+          polling: false, 
+          loading: false,
+          error: "Task polling timed out after 2 minutes"
+        });
+        return;
+      }
 
       try {
         // Assuming there's an endpoint to check task status

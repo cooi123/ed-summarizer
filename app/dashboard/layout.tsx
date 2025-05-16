@@ -4,32 +4,37 @@ import type React from "react";
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/store/auth-provider";
+import { useUser } from "@clerk/nextjs";
 import { DashboardNav } from "@/components/dashboard-nav";
 import { UserNav } from "@/components/user-nav";
 import useUserStore from "@/store/userStore";
+import { useSyncAuthToken } from "@/lib/api";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoaded } = useUser();
   const router = useRouter();
-  //once user is login then trigger refetch for userStore
-  useEffect(() => {
-    if (!isLoading && user) {
-      useUserStore.getState().fetchUser(user.email);
-    }
-  }, [user, isLoading]);
+  const { fetchUser, needsSignup, loading } = useUserStore();
+  
+  // Sync Clerk token with localStorage
+  useSyncAuthToken();
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push("/");
+    if (isLoaded) {
+      if (!user) {
+        router.push("/");
+      } else if (needsSignup) {
+        router.push("/signup");
+      } else {
+        fetchUser();
+      }
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoaded, needsSignup, router, fetchUser]);
 
-  if (isLoading) {
+  if (!isLoaded || loading) {
     return (
       <div className="flex h-screen items-center justify-center">
         Loading...

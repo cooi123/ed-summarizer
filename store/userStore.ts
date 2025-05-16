@@ -13,9 +13,10 @@ interface UserState {
   loading: boolean;
   updating: boolean;
   error: string | null;
+  needsSignup: boolean;
 
   // Actions
-  fetchUser: (email: string) => Promise<void>;
+  fetchUser: () => Promise<void>;
   updateUser: (userData: Partial<User>) => Promise<void>;
 
   // Units management
@@ -34,28 +35,41 @@ const useUserStore = create<UserState>()(
       loading: false,
       updating: false,
       error: null,
+      needsSignup: false,
 
       // Fetch user data
-      fetchUser: async (email) => {
-        set({ loading: true, error: null });
+      fetchUser: async () => {
+        set({ loading: true, error: null, needsSignup: false });
 
         try {
           const userData = await apiService.get<User>(
-            apiEndpoints.user.get(email)
+            apiEndpoints.user.get()
           );
           set({
             user: userData,
             loading: false,
+            needsSignup: false,
           });
-        } catch (error) {
+        } catch (error: any) {
           console.error("Failed to fetch user data:", error);
+          
+          // If 404, user needs to sign up
+          if (error.response?.status === 404) {
+            set({
+              needsSignup: true,
+              loading: false,
+              error: null,
+            });
+            return;
+          }
+
           set({
             error:
               error instanceof Error
                 ? error.message
                 : "Failed to fetch user data",
             loading: false,
-            user: null,
+            needsSignup: false,
           });
         }
       },
@@ -79,6 +93,7 @@ const useUserStore = create<UserState>()(
           set({
             user: updatedUserData,
             updating: false,
+            needsSignup: false,
           });
         } catch (error) {
           console.error("Failed to update user data:", error);
@@ -173,7 +188,7 @@ const useUserStore = create<UserState>()(
       },
 
       clearUserData: () => {
-        set({ user: null });
+        set({ user: null, needsSignup: false });
       },
     }),
     {
