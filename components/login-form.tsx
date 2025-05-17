@@ -5,37 +5,36 @@ import { SignIn } from "@clerk/nextjs";
 
 export function LoginForm() {
   return (
-
-        <SignIn 
-          forceRedirectUrl="/dashboard"
-          appearance={{
-            elements: {
-              formButtonPrimary: 
-                "bg-primary hover:bg-primary/90 text-primary-foreground",
-              card: "bg-primary shadow-none",
-              headerTitle: "text-2xl font-bold text-foreground",
-              headerSubtitle: "text-muted-foreground",
-              socialButtonsBlockButton: 
-                "border border-input bg- hover:bg-accent hover:text-accent-foreground",
-              formFieldLabel: "text-foreground",
-              formFieldInput: 
-                "border border-input bg-background text-foreground",
-              footerActionLink: "text-primary hover:text-primary/90",
-              formFieldAction: "text-primary hover:text-primary/90",
-              identityPreviewEditButton: "text-primary hover:text-primary/90",
-              formFieldInputShowPasswordButton: "text-muted-foreground hover:text-foreground",
-              alertText: "text-destructive",
-              alertIcon: "text-destructive",
-              
-            },
-            layout: {
-              socialButtonsPlacement: "bottom",
-              socialButtonsVariant: "blockButton",
-              privacyPageUrl: "/privacy",
-              termsPageUrl: "/terms",
-            },
-          }}
-        />
-
+    <SignIn 
+      forceRedirectUrl="/dashboard"
+      appearance={{
+        elements: {
+          formButtonPrimary: 
+            "bg-black hover:bg-black/90 text-white",
+          card: "bg-white shadow-none",
+          headerTitle: "text-black text-2xl font-bold",
+          headerSubtitle: "text-black/70",
+          socialButtonsBlockButton: 
+            "border border-input bg-white text-black hover:bg-gray-100",
+          formFieldLabel: "text-black",
+          formFieldInput: 
+            "border border-input bg-white text-black",
+          footerActionLink: "text-black hover:text-black/70",
+          formFieldAction: "text-black hover:text-black/70",
+          identityPreviewEditButton: "text-black hover:text-black/70",
+          formFieldInputShowPasswordButton: "text-black/70 hover:text-black",
+          alertText: "text-destructive",
+          alertIcon: "text-destructive",
+          footerAction: "text-black hover:text-black/70",
+          footerActionText: "text-black/70",
+        },
+        layout: {
+          socialButtonsPlacement: "bottom",
+          socialButtonsVariant: "blockButton",
+          privacyPageUrl: "/privacy",
+          termsPageUrl: "/terms",
+        },
+      }}
+    />
   );
 }
