@@ -20,6 +20,7 @@ export const apiEndpoints = {
     getWeeklyData: (unitId: string) => `/units/${unitId}/weeks`,
 
     getQuestionClusters: (unitId: string) => `/question-clusters/units/${unitId}/clusters`,
+    getCategories: (unitId: string) => `/units/${unitId}/categories`,
   },
 
   tasks: {
@@ -27,5 +28,7 @@ export const apiEndpoints = {
     runTask: () => `/tasks/run_chain/`,
     getTaskStatus: (taskId: string) => `/tasks/status/${taskId}`,
     getTaskById: (taskId: string) => `/tasks/task/${taskId}`,
-  },
+    runAnalysis: () => `/tasks/run_unit_trend_analysis/`,
+    getAnalysisReport: (unitId:string, category:string) => `/tasks/unit_trend_analysis_report/${unitId}/${category}`,
+  }
 };

@@ -215,7 +215,7 @@ export function FAQWeeklyCard({
             content: selectedRun.result.report,
             createdAt: selectedRun.created_at,
             status: selectedRun.status,
-            weekInfo: `Week ${week.weekNumber}`,
+            weekInfo: `Week ${week.teachingWeekNumber}`,
           }}
           unitName={`${unit.code}: ${unit.name}`}
           fileName={`${unit.code}-${unit.name

@@ -4,8 +4,7 @@ export interface Task {
   description: string;
   unitId: string;
   userId: string;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
   status: "recieved" | "running" | "completed" | "failed";
   errorMessage?: string;
   result: object | null;

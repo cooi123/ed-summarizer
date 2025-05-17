@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import {  Settings, MessageSquare, HelpCircle } from "lucide-react";
+import {  Settings, MessageSquare, HelpCircle, BarChart } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTaskStore } from "@/store/taskStore";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +13,7 @@ import { TaskProgressBar } from "@/components/unit/unit-task-progress-bar";
 import { QuestionClusterGroup } from "@/components/unit/question-cluster/question-cluster-group";
 import { SemesterSelectionDialog } from "@/components/unit/semester-selection-dialog";
 import { WeekConfig } from "@/types/unit";
+import { UnitAnalysisTab } from "@/components/unit/unit-analysis/unit-analysis-tab";
 
 export default function UnitPage() {
   const params = useParams();
@@ -151,6 +152,10 @@ export default function UnitPage() {
             <HelpCircle className="h-5 w-5" />
             Generate Weekly FAQ
           </TabsTrigger>
+          <TabsTrigger value="analysis">
+            <BarChart className="h-5 w-5" />
+            Unit Analysis
+          </TabsTrigger>
           <TabsTrigger value="settings">
             <Settings className="mr-2 h-4 w-4" />
             Unit Settings
@@ -166,6 +171,10 @@ export default function UnitPage() {
             taskRuns={taskRuns}
             unit={unit}
           />
+        </TabsContent>
+
+        <TabsContent value="analysis" className="space-y-4">
+          <UnitAnalysisTab unit={unit} />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-6">
