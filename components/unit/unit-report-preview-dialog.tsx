@@ -118,7 +118,58 @@ export function ReportPreviewDialog({
           {showRaw ? (
             <pre className="whitespace-pre-wrap text-sm">{report.content}</pre>
           ) : (
-            <div className="prose prose-sm dark:prose-invert max-w-none">
+            <div className="prose prose-sm dark:prose-invert max-w-none [&>*]:mb-4 [&>*:last-child]:mb-0">
+              <style jsx global>{`
+                .prose h1 {
+                  font-size: 1.5em;
+                  font-weight: 600;
+                  margin-top: 1.5em;
+                  margin-bottom: 0.75em;
+                  color: hsl(var(--foreground));
+                }
+                .prose h2 {
+                  font-size: 1.25em;
+                  font-weight: 600;
+                  margin-top: 1.25em;
+                  margin-bottom: 0.75em;
+                  color: hsl(var(--foreground));
+                  border-bottom: 1px solid hsl(var(--border));
+                  padding-bottom: 0.5em;
+                }
+                .prose h3 {
+                  font-size: 1.1em;
+                  font-weight: 600;
+                  margin-top: 1em;
+                  margin-bottom: 0.5em;
+                  color: hsl(var(--foreground));
+                }
+                .prose ul {
+                  list-style-type: disc;
+                  padding-left: 1.5em;
+                  margin-top: 0.5em;
+                  margin-bottom: 0.5em;
+                }
+                .prose li {
+                  margin-top: 0.25em;
+                  margin-bottom: 0.25em;
+                }
+                .prose strong {
+                  font-weight: 600;
+                  color: hsl(var(--foreground));
+                }
+                .prose p {
+                  margin-top: 0.5em;
+                  margin-bottom: 0.5em;
+                }
+                .prose blockquote {
+                  border-left: 4px solid hsl(var(--border));
+                  padding-left: 1em;
+                  margin-left: 0;
+                  margin-right: 0;
+                  font-style: italic;
+                  color: hsl(var(--muted-foreground));
+                }
+              `}</style>
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {report.content}
               </ReactMarkdown>
