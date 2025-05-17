@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiEndpoints } from '@/const/apiEndpoints';
 import { apiService } from '@/lib/api';
 import { isWithinInterval } from 'date-fns';
+import { WeekConfig } from '@/types/unit';
 
 interface Question {
   id: string;
@@ -12,12 +13,6 @@ interface Question {
   needs_attention: boolean;
   vote_count: number;
   url: string;
-}
-
-interface WeekConfig {
-  weekNumber: number;
-  startDate: Date;
-  endDate: Date;
 }
 
 interface Cluster {
@@ -50,7 +45,6 @@ function getWeekNumber(clusterWeekStart: Date, weeks?: WeekConfig[]): number {
   const sortedWeeks = [...weeks].sort((a, b) =>
     new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
   );
-console.log("clusterWeekStart", clusterWeekStart)
   const matchingWeek = sortedWeeks.find((weekConfig) => {
     //ignore time
     const weekStart = new Date(weekConfig.startDate).setHours(0, 0, 0, 0);
@@ -59,9 +53,8 @@ console.log("clusterWeekStart", clusterWeekStart)
     return isWithinInterval(clusterWeekStartDate, { start: weekStart, end: weekEnd });
   });
 
-
   if (matchingWeek) {
-    return matchingWeek.weekNumber;
+    return matchingWeek.teachingWeekNumber;
   }
 
   return 0;
@@ -92,7 +85,7 @@ export function useUnitQuestionCluster(unitId: string, weeks?: WeekConfig[]) {
 
   // Derive available weeks (from unit configuration if provided, else from clusters)
   const availableWeeks = weeks
-    ? Array.from(new Set(weeks.map((wc) => wc.weekNumber))).sort((a, b) => a - b)
+    ? Array.from(new Set(weeks.map((wc) => wc.teachingWeekNumber))).sort((a, b) => a - b)
     : Array.from(
         new Set(
           clustersWithWeek.map((c) => c.week).filter((w): w is number => w != null)

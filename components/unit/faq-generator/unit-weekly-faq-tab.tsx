@@ -8,27 +8,22 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, Eye, MessageSquare, RefreshCw, FileText } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { TaskRun } from "@/store/taskStore";
 import { WeekConfig } from "@/types/unit";
 import { Unit } from "@/types/unit";
 import { useToast } from "@/hooks/use-toast";
 import { ReportPreviewDialog } from "../unit-report-preview-dialog";
-import { downloadReport } from "@/util/shared";
-import { apiService } from "@/lib/api";
-import { apiEndpoints } from "@/const/apiEndpoints";
+import { Badge } from "@/components/ui/badge";
+import useUserStore from "@/store/userStore";
+import { FAQWeeklyCard } from "./faq-weekly-card";
+import { useUnitThreads } from "@/hooks/useUnitThreads";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Badge } from "@/components/ui/badge";
-import useUserStore from "@/store/userStore";
-import { useTaskStore } from "@/store/taskStore";
-import { FAQWeeklyCard } from "./faq-weekly-card";
-import { parseDate } from "@/util/shared";
-import { useUnitThreads } from "@/hooks/useUnitThreads";
 
 interface UnitReportHistoryProps {
   taskRuns: TaskRun[];
@@ -37,12 +32,22 @@ interface UnitReportHistoryProps {
   onWeeklyReportEnd?: () => void;
 }
 
-interface Thread {
-  id: string;
-  created_at: string;
-  is_answered: boolean;
+interface WeekData {
+  weekId: number;
+  teachingWeekNumber: number;
+  weekType: string;
+  startDate: string;
+  endDate: string;
+  content: string;
+  threadCount: number;
+  faqReports: TaskRun[];
 }
 
+interface UnitWeekData {
+  unit_id: string;
+  unit_name: string;
+  weeks: WeekData[];
+}
 
 export function UnitWeeklyFAQ({ taskRuns, unit, onWeeklyReportStart, onWeeklyReportEnd }: UnitReportHistoryProps) {
   const { toast } = useToast();
@@ -56,6 +61,28 @@ export function UnitWeeklyFAQ({ taskRuns, unit, onWeeklyReportStart, onWeeklyRep
     isSyncing,
     handleSyncThreads,
   } = useUnitThreads(unit.id.toString(), unit.weeks || [], taskRuns);
+
+  const getBreakLabel = (weekType: string) => {
+    switch (weekType) {
+      case 'midsem':
+        return 'MID-SEMESTER BREAK';
+      case 'swotvac':
+        return 'SWOT VAC';
+      default:
+        return 'BREAK';
+    }
+  };
+
+  const getBreakStyles = (weekType: string) => {
+    switch (weekType) {
+      case 'midsem':
+        return 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300';
+      case 'swotvac':
+        return 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-300';
+      default:
+        return 'bg-muted border-muted-foreground/20 text-muted-foreground';
+    }
+  };
 
   if (isLoading) {
     return (
@@ -83,10 +110,21 @@ export function UnitWeeklyFAQ({ taskRuns, unit, onWeeklyReportStart, onWeeklyRep
 
   const isCurrentWeek = (week: WeekConfig) => {
     const currentDate = new Date();
-    const weekStart = parseDate(week.startDate);
-    const weekEnd = parseDate(week.endDate);
+    const weekStart = new Date(week.startDate);
+    const weekEnd = new Date(week.endDate);
+    
+    // Set all times to midnight for accurate date comparison
+    currentDate.setHours(0, 0, 0, 0);
+    weekStart.setHours(0, 0, 0, 0);
+    weekEnd.setHours(23, 59, 59, 999); // End of day for end date
+    
     return isWithinInterval(currentDate, { start: weekStart, end: weekEnd });
   };
+
+  // Sort weeks by start date
+  const sortedWeeks = [...unit.weeks].sort(
+    (a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+  );
 
   return (
     <>
@@ -102,37 +140,54 @@ export function UnitWeeklyFAQ({ taskRuns, unit, onWeeklyReportStart, onWeeklyRep
       </div>
       <div className="space-y-4">
         <Accordion type="single" collapsible className="w-full">
-          {weeklyData.map(({ week, threadCount, reports: weekReports }) => (
-            <AccordionItem 
-              key={week.weekNumber} 
-              value={week.weekNumber.toString()} 
-              className={`${isCurrentWeek(week) ? 'border-2 border-primary shadow-lg bg-primary/10 rounded-lg p-2 mb-2' : ''}`}
-            >
-              <AccordionTrigger className="hover:no-underline">
-                <div className="flex items-center gap-4">
-                  <span>Week {week.weekNumber}</span>
-                  <Badge variant="outline">
-                    {format(parseDate(week.startDate), 'dd/MM/yyyy')} -{" "}
-                    {format(parseDate(week.endDate), 'dd/MM/yyyy')}
-                  </Badge>
-                  <Badge variant="secondary">{threadCount} threads</Badge>
-                  {weekReports.length > 0 && (
-                    <Badge variant="default">{weekReports.length} FAQ generated</Badge>
+          {sortedWeeks.map((week) => {
+            const weekData = weeklyData.find(w => w.weekId === week.weekId);
+            const isBreak = week.weekType === 'midsem' || week.weekType === 'swotvac';
+            
+            return (
+              <AccordionItem 
+                key={week.weekId} 
+                value={week.weekId.toString()} 
+                className={`${isCurrentWeek(week) ? 'border-2 border-primary shadow-lg bg-primary/10 rounded-lg p-2 mb-2' : ''} ${isBreak ? getBreakStyles(week.weekType) : ''}`}
+              >
+                <AccordionTrigger className="hover:no-underline">
+                  <div className="flex items-center gap-4">
+                    {isBreak ? (
+                      <div className={`px-2 py-1 rounded-md text-xs ${getBreakStyles(week.weekType)}`}>
+                        {getBreakLabel(week.weekType)}
+                      </div>
+                    ) : (
+                      <span>Week {week.teachingWeekNumber}</span>
+                    )}
+                    <Badge variant="outline">
+                      {format(new Date(week.startDate), 'dd/MM/yyyy')} -{" "}
+                      {format(new Date(week.endDate), 'dd/MM/yyyy')}
+                    </Badge>
+                    {weekData && (
+                      <>
+                        <Badge variant="secondary">{weekData.threadCount} threads</Badge>
+                        {weekData.faqReports.length > 0 && (
+                          <Badge variant="default">{weekData.faqReports.length} FAQ generated</Badge>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  {weekData && (
+                    <FAQWeeklyCard
+                      week={week}
+                      threads={[]}
+                      reports={weekData.faqReports}
+                      unit={unit}
+                      onReportStart={onWeeklyReportStart}
+                      onReportEnd={onWeeklyReportEnd}
+                    />
                   )}
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <FAQWeeklyCard
-                  week={week}
-                  threads={[]}
-                  reports={weekReports}
-                  unit={unit}
-                  onReportStart={onWeeklyReportStart}
-                  onReportEnd={onWeeklyReportEnd}
-                />
-              </AccordionContent>
-            </AccordionItem>
-          ))}
+                </AccordionContent>
+              </AccordionItem>
+            );
+          })}
         </Accordion>
       </div>
 
@@ -150,11 +205,11 @@ export function UnitWeeklyFAQ({ taskRuns, unit, onWeeklyReportStart, onWeeklyRep
                 const endDate = new Date(selectedRun.input.endDate);
                 const matchingWeek = unit.weeks?.find(
                   (week) =>
-                    (startDate >= parseDate(week.startDate) && startDate <= parseDate(week.endDate)) ||
-                    (endDate >= parseDate(week.startDate) && endDate <= parseDate(week.endDate)) ||
-                    (startDate <= parseDate(week.startDate) && endDate >= parseDate(week.endDate))
+                    (startDate >= new Date(week.startDate) && startDate <= new Date(week.endDate)) ||
+                    (endDate >= new Date(week.startDate) && endDate <= new Date(week.endDate)) ||
+                    (startDate <= new Date(week.startDate) && endDate >= new Date(week.endDate))
                 );
-                return matchingWeek ? `Week ${matchingWeek.weekNumber}` : "N/A";
+                return matchingWeek ? `Week ${matchingWeek.teachingWeekNumber}` : "N/A";
               }
               return "N/A";
             })(),

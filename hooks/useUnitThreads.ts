@@ -15,7 +15,9 @@ interface Thread {
 }
 
 interface WeekData {
-  weekNumber: number;
+  weekId: number;
+  teachingWeekNumber: number;
+  weekType: string;
   startDate: string;
   endDate: string;
   content: string;
@@ -99,15 +101,14 @@ export function useUnitThreads(unitId: string, weeks: WeekConfig[], taskRuns: Ta
 
   // Transform the data to match the expected format
   const weeklyData = unitWeeksData?.weeks.map(weekData => ({
-    week: {
-      weekNumber: weekData.weekNumber,
-      startDate: new Date(weekData.startDate),
-      endDate: new Date(weekData.endDate),
-      content: weekData.content,
-    },
-    threads: [], // We don't have thread details anymore, just the count
-    reports: weekData.faqReports,
+    weekId: weekData.weekId,
+    teachingWeekNumber: weekData.teachingWeekNumber,
+    weekType: weekData.weekType,
+    startDate: weekData.startDate,
+    endDate: weekData.endDate,
+    content: weekData.content,
     threadCount: weekData.threadCount,
+    faqReports: weekData.faqReports,
   })) || [];
 
   return {

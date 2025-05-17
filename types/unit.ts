@@ -1,7 +1,9 @@
 export interface WeekConfig {
-  weekNumber: number;
-  startDate: Date;
-  endDate: Date;
+  weekId: number;
+  teachingWeekNumber: number;
+  weekType: string;
+  startDate: string;
+  endDate: string;
   content: string;
 }
 

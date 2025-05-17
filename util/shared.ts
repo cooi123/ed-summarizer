@@ -20,7 +20,7 @@ export const generateWeeks = (
   for (let i = 0; i < numberOfWeeks; i++) {
     let weekStartDate;
 
-    if (breakAfterWeek && i >= breakAfterWeek) {
+    if (breakAfterWeek && i > breakAfterWeek) {
       // For weeks after the break, add the break duration
       const baseWeekStart = addDays(firstDayOfWeek, i * 7);
       weekStartDate = addDays(baseWeekStart, breakDuration);
@@ -32,8 +32,8 @@ export const generateWeeks = (
 
     weeks.push({
       weekNumber: i + 1,
-      startDate: weekStartDate,
-      endDate: weekEndDate,
+      startDate: weekStartDate.toISOString(),
+      endDate: weekEndDate.toISOString(),
       content: "",
     });
   }

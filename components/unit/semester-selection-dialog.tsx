@@ -22,19 +22,7 @@ import { WeekConfig } from "@/types/unit";
 import { updateAllWeeks } from "@/store/unitStore";
 import { format } from "date-fns";
 import { Calendar, BookOpen, Coffee, GraduationCap, FileText } from "lucide-react";
-
-interface Phase {
-  type: string;
-  start_date: string;
-  end_date: string;
-}
-
-interface Semester {
-  id: number;
-  year: number;
-  semester: number;
-  phases: Phase[];
-}
+import { generateWeeksFromSemester, Semester, SemesterPhase } from "@/util/semester";
 
 interface SemesterSelectionDialogProps {
   isOpen: boolean;
@@ -148,102 +136,11 @@ export function SemesterSelectionDialog({
     );
     
     if (!semester) return;
-    
-    // Generate weeks based on the teaching period phase
-    const teachingPeriod = semester.phases.find(p => p.type === 'teaching_period');
-    if (!teachingPeriod) {
-      toast({
-        title: "Error",
-        description: "No teaching period found in selected semester.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const startDate = new Date(teachingPeriod.start_date);
-    const endDate = new Date(teachingPeriod.end_date);
-    
-    // Calculate number of weeks
-    const weeksDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
-    
-    // Generate initial weeks
-    let generatedWeeks = generateWeeks(
-      startDate,
-      weeksDiff,
-      undefined,
-      0
-    );
-
-    // Sort breaks by start date
-    const breaks = semester.phases
-      .filter(p => p.type === 'mid_semester_break' || p.type === 'swot_vac')
-      .sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
-
-    // Process each break
-    for (const breakPhase of breaks) {
-      const breakStart = new Date(breakPhase.start_date);
-      const breakEnd = new Date(breakPhase.end_date);
-      
-      // Find the week that contains the break start date
-      const breakWeekIndex = generatedWeeks.findIndex(week => 
-        new Date(week.startDate) <= breakStart && new Date(week.endDate) >= breakStart
-      );
-
-      if (breakWeekIndex !== -1) {
-        // Split the week at the break
-        const week = generatedWeeks[breakWeekIndex];
-        const beforeBreak = {
-          ...week,
-          endDate: new Date(breakStart.getTime() - 24 * 60 * 60 * 1000),
-        };
-        const afterBreak = {
-          ...week,
-          weekNumber: week.weekNumber + 1,
-          startDate: new Date(breakEnd.getTime() + 24 * 60 * 60 * 1000),
-        };
-
-        // Update the weeks array
-        generatedWeeks.splice(breakWeekIndex, 1, beforeBreak);
-        generatedWeeks.splice(breakWeekIndex + 1, 0, afterBreak);
-      }
-    }
-
-    // Renumber weeks sequentially, skipping breaks
-    let weekNumber = 1;
-    generatedWeeks = generatedWeeks.map(week => {
-      // Check if this week contains a break
-      const hasBreak = breaks.some(breakPhase => {
-        const breakStart = new Date(breakPhase.start_date);
-        const breakEnd = new Date(breakPhase.end_date);
-        return (
-          new Date(week.startDate) <= breakEnd &&
-          new Date(week.endDate) >= breakStart
-        );
-      });
-
-      if (hasBreak) {
-        return {
-          ...week,
-          weekNumber: 0, // Mark break weeks with 0
-          isBreak: true,
-          breakType: breaks.find(breakPhase => {
-            const breakStart = new Date(breakPhase.start_date);
-            const breakEnd = new Date(breakPhase.end_date);
-            return (
-              new Date(week.startDate) <= breakEnd &&
-              new Date(week.endDate) >= breakStart
-            );
-          })?.type
-        };
-      }
-
-      return {
-        ...week,
-        weekNumber: weekNumber++
-      };
-    });
 
     try {
+      // Generate weeks using the shared utility
+      const generatedWeeks = generateWeeksFromSemester(semester);
+      console.log('generatedWeeks', generatedWeeks);
       // Update the weeks in the backend
       await updateAllWeeks(unitId, generatedWeeks);
       
@@ -258,10 +155,10 @@ export function SemesterSelectionDialog({
         description: `Weeks have been generated for ${semester.year} Semester ${semester.semester}`,
       });
     } catch (error) {
-      console.error('Failed to update weeks:', error);
+      console.error('Failed to generate weeks:', error);
       toast({
         title: "Error",
-        description: "Failed to save the generated weeks. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to generate weeks. Please try again.",
         variant: "destructive",
       });
     }

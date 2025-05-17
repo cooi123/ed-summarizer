@@ -3,35 +3,7 @@ import { apiService } from "@/lib/api";
 import { Unit, WeekConfig } from "@/types/unit";
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
-
-
-// Common update function to be reused internally
-const performUpdate = async (
-  unitId: string,
-  updates: Partial<Unit> | { weeks: WeekConfig[] },
-  onSuccess: (data: Unit) => void,
-  onError: (error: Error) => void
-) => {
-  try {
-    const updatedData = await apiService.patch<Unit>(
-      apiEndpoints.units.update(unitId),
-      updates
-    );
-    //convert startDate and end date to date Object
-    const updatedWeeks = updatedData.weeks.map(week => ({
-      ...week,
-      startDate: new Date(week.startDate),
-      endDate: new Date(week.endDate)
-    } ));
-    onSuccess({...updatedData, weeks: updatedWeeks});
-    
-    return {...updatedData, weeks: updatedWeeks};
-  } catch (error: any) {
-    const errorMessage = error.message || "Failed to update unit data.";
-    onError(new Error(errorMessage));
-    throw error;
-  }
-};
+import { StateCreator } from "zustand";
 
 interface UnitState {
   unit: Unit | null;
@@ -51,119 +23,145 @@ interface UnitState {
   updateAllWeeks: (weeks: WeekConfig[]) => Promise<void>;
 }
 
-export const useUnitStore = create<UnitState>()(
-  immer((set, get) => ({
-    // --- State ---
-    unit: null,
-    isLoading: false,
-    isUpdating: false,
-    error: null,
+// Common update function to be reused internally
+const performUpdate = async (
+  unitId: string,
+  updates: Partial<Unit> | { weeks: WeekConfig[] },
+  onSuccess: (data: Unit) => void,
+  onError: (error: Error) => void
+) => {
+  try {
+    const updatedData = await apiService.patch<Unit>(
+      apiEndpoints.units.update(unitId),
+      updates
+    );
+    //convert startDate and end date to date Object
+    const updatedWeeks = updatedData.weeks.map(week => ({
+      ...week,
+      startDate: new Date(week.startDate).toISOString(),
+      endDate: new Date(week.endDate).toISOString()
+    }));
+    onSuccess({...updatedData, weeks: updatedWeeks});
+    
+    return {...updatedData, weeks: updatedWeeks};
+  } catch (error: any) {
+    const errorMessage = error.message || "Failed to update unit data.";
+    onError(new Error(errorMessage));
+    throw error;
+  }
+};
 
-    // --- Core Actions ---
-    fetchUnit: async (unitId) => {
-      if (get().isLoading) return;
-      set({ isLoading: true, error: null, unit: null });
-      try {
-        const unit = await apiService.get<Unit>(
-          apiEndpoints.units.getById(unitId)
-        );
-        if (unit.weeks) {
-          unit.weeks = unit.weeks.map(week => ({
-            ...week,
-            startDate: new Date(week.startDate),
-            endDate: new Date(week.endDate)
-          }));
-        }
-        set({ unit, isLoading: false });
-      } catch (error: any) {
-        console.error("Failed to fetch unit:", error);
-        set({
-          isLoading: false,
-          error: error.message || "Failed to fetch unit data.",
-        });
+const createUnitStore: StateCreator<UnitState, [], [], UnitState> = (set, get) => ({
+  // --- State ---
+  unit: null,
+  isLoading: false,
+  isUpdating: false,
+  error: null,
+
+  // --- Core Actions ---
+  fetchUnit: async (unitId) => {
+    if (get().isLoading) return;
+    set({ isLoading: true, error: null, unit: null });
+    try {
+      const unit = await apiService.get<Unit>(
+        apiEndpoints.units.getById(unitId)
+      );
+      if (unit.weeks) {
+        unit.weeks = unit.weeks.map(week => ({
+          ...week,
+          startDate: new Date(week.startDate).toISOString(),
+          endDate: new Date(week.endDate).toISOString()
+        }));
       }
-    },
-
-    clearError: () => set({ error: null }),
-
-    reset: () =>
+      set({ unit, isLoading: false });
+    } catch (error: any) {
+      console.error("Failed to fetch unit:", error);
       set({
-        unit: null,
         isLoading: false,
-        isUpdating: false,
-        error: null,
-      }),
+        error: error.message || "Failed to fetch unit data.",
+      });
+    }
+  },
 
-    // --- Update Actions ---
-    updateUnitDetails: async (details) => {
-      if (get().isUpdating) return;
-      const currentUnit = get().unit;
-      if (!currentUnit) {
-        set({ error: "Cannot update details: Unit not loaded." });
-        return;
-      }
+  clearError: () => set({ error: null }),
 
-      set({ isUpdating: true, error: null });
+  reset: () =>
+    set({
+      unit: null,
+      isLoading: false,
+      isUpdating: false,
+      error: null,
+    }),
 
-      try {
-        await performUpdate(
-          currentUnit.id,
-          details,
-          (updatedData) => {
-            set((state) => {
-              if (state.unit) {
-                state.unit = updatedData;
-              }
-              state.isUpdating = false;
-            });
-          },
-          (error) => {
-            set({
-              isUpdating: false,
-              error: error.message,
-            });
-          }
-        );
-      } catch (error: any) {
-        console.error("Failed to update unit details:", error);
-      }
-    },
+  // --- Update Actions ---
+  updateUnitDetails: async (details) => {
+    if (get().isUpdating) return;
+    const currentUnit = get().unit;
+    if (!currentUnit) {
+      set({ error: "Cannot update details: Unit not loaded." });
+      return;
+    }
 
-    updateAllWeeks: async (newWeeks) => {
-      if (get().isUpdating) return;
-      const currentUnit = get().unit;
-      if (!currentUnit) {
-        set({ error: "Cannot update weeks: Unit not loaded." });
-        return;
-      }
+    set({ isUpdating: true, error: null });
 
-      set({ isUpdating: true, error: null });
+    try {
+      await performUpdate(
+        currentUnit.id,
+        details,
+        (updatedData) => {
+          set((state) => ({
+            ...state,
+            unit: state.unit ? updatedData : null,
+            isUpdating: false
+          }));
+        },
+        (error) => {
+          set({
+            isUpdating: false,
+            error: error.message,
+          });
+        }
+      );
+    } catch (error: any) {
+      console.error("Failed to update unit details:", error);
+    }
+  },
 
-      try {
-        await performUpdate(
-          currentUnit.id,
-          { weeks: newWeeks },
-          (updatedData) => {
-            set((state) => {
-              if (state.unit) {
-                state.unit = updatedData;
-              }
-              state.isUpdating = false;
-            });
-          },
-          (error) => {
-            set({
-              isUpdating: false,
-              error: error.message,
-            });
-          }
-        );
-      } catch (error: any) {
-        console.error("Failed to update all weeks:", error);
-      }
-    },
-  }))
-);
+  updateAllWeeks: async (newWeeks) => {
+    if (get().isUpdating) return;
+    const currentUnit = get().unit;
+    if (!currentUnit) {
+      set({ error: "Cannot update weeks: Unit not loaded." });
+      return;
+    }
+
+    set({ isUpdating: true, error: null });
+
+    try {
+      await performUpdate(
+        currentUnit.id,
+        { weeks: newWeeks },
+        (updatedData) => {
+          set((state) => ({
+            ...state,
+            unit: state.unit ? updatedData : null,
+            isUpdating: false
+          }));
+        },
+        (error) => {
+          set({
+            isUpdating: false,
+            error: error.message,
+          });
+        }
+      );
+    } catch (error: any) {
+      console.error("Failed to update all weeks:", error);
+    }
+  },
+});
+
+export const useUnitStore = create<UnitState>()(immer(createUnitStore));
 
 // Export helper functions that leverage the store
 export const updateUnitDetails = async (
@@ -176,7 +174,6 @@ export const updateUnitDetails = async (
   }
   return store.updateUnitDetails(details);
 };
-
 
 export const updateAllWeeks = async (
   unitId: string,
