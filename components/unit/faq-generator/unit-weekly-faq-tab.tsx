@@ -41,6 +41,7 @@ interface WeekData {
   content: string;
   threadCount: number;
   faqReports: TaskRun[];
+  categoryCounts?: Record<string, number>;
 }
 
 interface UnitWeekData {
@@ -175,14 +176,29 @@ export function UnitWeeklyFAQ({ taskRuns, unit, onWeeklyReportStart, onWeeklyRep
                 </AccordionTrigger>
                 <AccordionContent>
                   {weekData && (
-                    <FAQWeeklyCard
-                      week={week}
-                      threads={[]}
-                      reports={weekData.faqReports}
-                      unit={unit}
-                      onReportStart={onWeeklyReportStart}
-                      onReportEnd={onWeeklyReportEnd}
-                    />
+                    <>
+                      {weekData.categoryCounts && Object.entries(weekData.categoryCounts).length > 0 && (
+                        <div className="mb-4">
+                          <h4 className="text-sm font-medium mb-2">Category Distribution:</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {Object.entries(weekData.categoryCounts).map(([category, count]) => (
+                              <Badge key={category} variant="outline" className="flex items-center gap-1">
+                                <span>{category}:</span>
+                                <span className="font-semibold">{count}</span>
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <FAQWeeklyCard
+                        week={week}
+                        threads={[]}
+                        reports={weekData.faqReports}
+                        unit={unit}
+                        onReportStart={onWeeklyReportStart}
+                        onReportEnd={onWeeklyReportEnd}
+                      />
+                    </>
                   )}
                 </AccordionContent>
               </AccordionItem>

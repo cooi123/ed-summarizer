@@ -23,6 +23,7 @@ interface WeekData {
   content: string;
   threadCount: number;
   faqReports: TaskRun[];
+  categoryCounts?: Record<string, number>;
 }
 
 interface UnitWeekData {
@@ -109,6 +110,7 @@ export function useUnitThreads(unitId: string, weeks: WeekConfig[], taskRuns: Ta
     content: weekData.content,
     threadCount: weekData.threadCount,
     faqReports: weekData.faqReports,
+    categoryCounts: weekData.categoryCounts,
   })) || [];
 
   return {
