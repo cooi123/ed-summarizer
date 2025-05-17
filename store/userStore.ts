@@ -86,7 +86,7 @@ const useUserStore = create<UserState>()(
           }
 
           const updatedUserData = await apiService.patch<User>(
-            apiEndpoints.user.update(user.id),
+            apiEndpoints.user.update(),
             userData
           );
 
@@ -169,7 +169,7 @@ const useUserStore = create<UserState>()(
 
         // Make the API call to update selected units
         await apiService.patch(
-          apiEndpoints.user.updateSelectedUnits(user.id),
+          apiEndpoints.user.updateSelectedUnits(),
           { selectedUnits: apiSelectedUnits }
         );
 
