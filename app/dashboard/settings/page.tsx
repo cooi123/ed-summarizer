@@ -39,10 +39,18 @@ export default function SettingsPage() {
   const [apiKeyError, setApiKeyError] = useState<string | null>(null);
   // Get available units and currently selected unit IDs from user store
   const availableUnits = user?.availableUnits || [];
+  const selectedUnits = user?.selectedUnits || [];
+
+  // Merge available units with selected units that might be archived
+  const mergedUnits = [...availableUnits];
+  selectedUnits.forEach(selectedUnit => {
+    if (!mergedUnits.some(unit => unit.id === selectedUnit.id)) {
+      mergedUnits.push(selectedUnit);
+    }
+  });
 
   // Get selected unit IDs for easier comparison
-  const selectedUnitIds =
-    user?.selectedUnits?.map((unit) => unit.id.toString()) || [];
+  const selectedUnitIds = selectedUnits.map((unit) => unit.id.toString());
 
   // // Fetch user data once when component mounts
   // useEffect(() => {
@@ -249,36 +257,40 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>Unit Selection</CardTitle>
           <CardDescription>
-            Select the units you want to work with
+            Select the units you want to work with. Archived units are marked with an asterisk (*).
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {availableUnits.map((unit) => (
-              <div
-                key={unit.id}
-                className="flex items-start space-x-3 space-y-0"
-              >
-                <Checkbox
-                  id={unit.id.toString()}
-                  checked={localSelectedUnits.includes(unit.id.toString())}
-                  onCheckedChange={() => handleToggleUnit(unit.id)}
-                />
-                <div className="grid gap-1.5 leading-none">
-                  <label
-                    htmlFor={unit.id.toString()}
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    {unit.code}: {unit.name}
-                  </label>
-                  <p className="text-sm text-muted-foreground">
-                    {unit.year} - {unit.session}
-                  </p>
+            {mergedUnits.map((unit) => {
+              const isArchived = !availableUnits.some(availUnit => availUnit.id === unit.id);
+              return (
+                <div
+                  key={unit.id}
+                  className="flex items-start space-x-3 space-y-0"
+                >
+                  <Checkbox
+                    id={unit.id.toString()}
+                    checked={localSelectedUnits.includes(unit.id.toString())}
+                    onCheckedChange={() => handleToggleUnit(unit.id)}
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <label
+                      htmlFor={unit.id.toString()}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      {unit.code}: {unit.name} {isArchived && "*"}
+                    </label>
+                    <p className="text-sm text-muted-foreground">
+                      {unit.year} - {unit.session}
+                      {isArchived && " (Archived)"}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
-            {availableUnits.length === 0 && (
+            {mergedUnits.length === 0 && (
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">
                   No units available. This could be because:
