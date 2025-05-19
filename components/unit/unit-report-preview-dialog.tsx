@@ -38,7 +38,6 @@ export function ReportPreviewDialog({
   const [copied, setCopied] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
 
-  // Function to handle download
   const handleDownload = () => {
     downloadReport(report.content, fileName);
     toast({
@@ -47,7 +46,6 @@ export function ReportPreviewDialog({
     });
   };
 
-  // Function to copy to clipboard
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(report.content);
@@ -56,8 +54,6 @@ export function ReportPreviewDialog({
         title: "Copied to Clipboard",
         description: "Report content has been copied to clipboard",
       });
-
-      // Reset copied status after 2 seconds
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       toast({
@@ -68,7 +64,6 @@ export function ReportPreviewDialog({
     }
   };
 
-  // Toggle between rendered markdown and raw text
   const toggleRawView = () => {
     setShowRaw(!showRaw);
   };
@@ -100,7 +95,6 @@ export function ReportPreviewDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Content view toggle */}
         <div className="flex items-center justify-end mb-2">
           <Button
             variant="ghost"
@@ -113,7 +107,6 @@ export function ReportPreviewDialog({
           </Button>
         </div>
 
-        {/* Scrollable report content */}
         <div className="max-h-[60vh] overflow-y-auto p-4 border rounded-md my-2 bg-muted/20">
           {showRaw ? (
             <pre className="whitespace-pre-wrap text-sm">{report.content}</pre>
@@ -170,7 +163,7 @@ export function ReportPreviewDialog({
                   color: hsl(var(--muted-foreground));
                 }
               `}</style>
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              <ReactMarkdown>
                 {report.content}
               </ReactMarkdown>
             </div>
