@@ -15,6 +15,18 @@ import ReactMarkdown from 'react-markdown';
 import { format, parseISO } from "date-fns";
 import { ReportPreviewDialog } from "../unit-report-preview-dialog";
 import { downloadReport, parseDate } from "@/util/shared";
+import { AnalysisReportPreviewDialog } from "../unit-analysis/unit-analysis-preview-dialog";
+
+interface RelatedQuestion {
+  theme: string;
+  summary: string;
+  questionIds: string[];
+}
+
+interface TaskResult {
+  report: string;
+  questions?: RelatedQuestion[];
+}
 
 interface UnitAnalysisTabProps {
   unit: Unit;
@@ -57,12 +69,10 @@ export function UnitAnalysisTab({ unit }: UnitAnalysisTabProps) {
       
       setLoading(true);
       try {
-        const response = await apiService.get<Task[]>(apiEndpoints.tasks.getAnalysisReport(unit.id.toString(), selectedCategory));
-        // Sort tasks by created_at in descending order (most recent first)
-        const sortedTasks = (response || []).sort((a, b) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
-        setTasks(sortedTasks);
+        const response = await apiService.get<Task>(apiEndpoints.tasks.getAnalysisReport(unit.id.toString(), selectedCategory));
+        if (response) {
+          setTasks([response]); // Store as array with single item
+        }
       } catch (error) {
         toast({
           title: "Error",
@@ -107,21 +117,20 @@ export function UnitAnalysisTab({ unit }: UnitAnalysisTabProps) {
       // Start polling for the report
       const pollInterval = setInterval(async () => {
         try {
-          const response = await apiService.get<Task[]>(
+          const response = await apiService.get<Task>(
             apiEndpoints.tasks.getAnalysisReport(unit.id.toString(), selectedCategory)
           );
           
           if (response) {
-            setTasks(response);
-            const latestTask = response[0]; // Assuming tasks are ordered by date
-            if (latestTask.status === 'completed') {
+            setTasks([response]); // Store as array with single item
+            if (response.status === 'completed') {
               clearInterval(pollInterval);
               setGenerating(false);
               toast({
                 title: "Success",
                 description: "Analysis report generated successfully",
               });
-            } else if (latestTask.status === 'failed') {
+            } else if (response.status === 'failed') {
               clearInterval(pollInterval);
               setGenerating(false);
               toast({
@@ -293,7 +302,7 @@ export function UnitAnalysisTab({ unit }: UnitAnalysisTabProps) {
       </Card>
 
       {selectedTask && selectedTask.result && 'report' in selectedTask.result && (
-        <ReportPreviewDialog
+        <AnalysisReportPreviewDialog
           isOpen={isPreviewOpen}
           onOpenChange={setIsPreviewOpen}
           report={{
@@ -301,6 +310,7 @@ export function UnitAnalysisTab({ unit }: UnitAnalysisTabProps) {
             createdAt: formatDate(selectedTask.created_at),
             status: selectedTask.status,
             weekInfo: `Category: ${selectedCategory}`,
+            relatedQuestions: (selectedTask.result as any).questions || [],
           }}
           unitName={`${unit.code}: ${unit.name}`}
           fileName={`${unit.code}-${unit.name.replace(/\s+/g, "-").toLowerCase()}-analysis-${selectedCategory}-${

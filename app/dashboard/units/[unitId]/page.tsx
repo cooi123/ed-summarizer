@@ -163,10 +163,18 @@ export default function UnitPage() {
         </TabsList>
 
         <TabsContent value="question-clusters" className="space-y-4">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold">Question Clusters</h2>
+            <p className="text-muted-foreground">View and analyze clusters of questions grouped by common themes, filtered by weeks. This helps identify patterns and recurring topics in student questions.</p>
+          </div>
           <QuestionClusterGroup unit={unit} />
         </TabsContent>
 
         <TabsContent value="weekly-faq" className="space-y-4">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold">Weekly FAQ Generator</h2>
+            <p className="text-muted-foreground">Generate weekly FAQ templates based on categorized questions. This tool helps create structured responses to common student inquiries organized by topic.</p>
+          </div>
           <UnitWeeklyFAQ
             taskRuns={taskRuns}
             unit={unit}
@@ -174,10 +182,18 @@ export default function UnitPage() {
         </TabsContent>
 
         <TabsContent value="analysis" className="space-y-4">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold">Unit Analysis</h2>
+            <p className="text-muted-foreground">Comprehensive analysis of unit assessments, including common questions, misconceptions, and recommendations per assessment. Gain insights into student performance and learning patterns.</p>
+          </div>
           <UnitAnalysisTab unit={unit} />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-6">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold">Unit Settings</h2>
+            <p className="text-muted-foreground">Configure and manage unit parameters, including semester details, assessment settings, and other unit-specific configurations.</p>
+          </div>
           <UnitSettings unit={unit} unitId={unitId} />
         </TabsContent>
       </Tabs>
