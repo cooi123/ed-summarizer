@@ -10,6 +10,8 @@ interface Question {
   content: string;
   title: string;
   is_answered: boolean;
+  is_staff_answered:boolean 
+  is_student_answered:boolean
   needs_attention: boolean;
   vote_count: number;
   url: string;
