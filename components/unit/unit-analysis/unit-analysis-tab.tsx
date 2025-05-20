@@ -38,10 +38,50 @@ export function UnitAnalysisTab({ unit }: UnitAnalysisTabProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState<number>(120); // 2 minutes in seconds
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useUserStore();
+
+  // Timer effect for countdown
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (generating && timeRemaining > 0) {
+      interval = setInterval(() => {
+        setTimeRemaining((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [generating, timeRemaining]);
+
+  // Check for existing timer on mount
+  useEffect(() => {
+    const checkExistingTimer = () => {
+      const timerData = localStorage.getItem(`analysis-timer-${unit.id}-${selectedCategory}`);
+      if (timerData) {
+        const { endTime } = JSON.parse(timerData);
+        const now = new Date().getTime();
+        const timeLeft = endTime - now;
+
+        if (timeLeft > 0) {
+          setGenerating(true);
+          setTimeRemaining(Math.ceil(timeLeft / 1000));
+          setTimeout(() => {
+            setGenerating(false);
+            window.location.reload();
+          }, timeLeft);
+        } else {
+          localStorage.removeItem(`analysis-timer-${unit.id}-${selectedCategory}`);
+          window.location.reload();
+        }
+      }
+    };
+
+    if (selectedCategory) {
+      checkExistingTimer();
+    }
+  }, [unit.id, selectedCategory]);
 
   // Fetch categories on component mount
   useEffect(() => {
@@ -51,11 +91,7 @@ export function UnitAnalysisTab({ unit }: UnitAnalysisTabProps) {
         response.sort();
         setCategories(response);
       } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to fetch categories",
-          variant: "destructive",
-        });
+      
       }
     };
 
@@ -74,11 +110,7 @@ export function UnitAnalysisTab({ unit }: UnitAnalysisTabProps) {
           setTasks([response]); // Store as array with single item
         }
       } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to fetch analysis reports",
-          variant: "destructive",
-        });
+      
       } finally {
         setLoading(false);
       }
@@ -102,6 +134,7 @@ export function UnitAnalysisTab({ unit }: UnitAnalysisTabProps) {
     }
 
     setGenerating(true);
+    setTimeRemaining(120); // Reset timer to 2 minutes
     try {
       await apiService.post(
         apiEndpoints.tasks.runAnalysis(),
@@ -114,58 +147,27 @@ export function UnitAnalysisTab({ unit }: UnitAnalysisTabProps) {
         }
       );
 
-      // Start polling for the report
-      const pollInterval = setInterval(async () => {
-        try {
-          const response = await apiService.get<Task>(
-            apiEndpoints.tasks.getAnalysisReport(unit.id.toString(), selectedCategory)
-          );
-          
-          if (response) {
-            setTasks([response]); // Store as array with single item
-            if (response.status === 'completed') {
-              clearInterval(pollInterval);
-              setGenerating(false);
-              toast({
-                title: "Success",
-                description: "Analysis report generated successfully",
-              });
-            } else if (response.status === 'failed') {
-              clearInterval(pollInterval);
-              setGenerating(false);
-              toast({
-                title: "Error",
-                description: "Report generation failed",
-                variant: "destructive",
-              });
-            }
-          }
-        } catch (error) {
-          clearInterval(pollInterval);
-          setGenerating(false);
-          toast({
-            title: "Error",
-            description: "Failed to fetch generated report",
-            variant: "destructive",
-          });
-        }
-      }, 5000); // Poll every 5 seconds
+      const endTime = new Date().getTime() + 120000;
+      localStorage.setItem(
+        `analysis-timer-${unit.id}-${selectedCategory}`,
+        JSON.stringify({ endTime })
+      );
 
-      // Clear interval after 5 minutes (timeout)
+      toast({
+        title: "Report Generation Started",
+        description: "Please wait while we generate your report.",
+      });
+
       setTimeout(() => {
-        clearInterval(pollInterval);
-        if (generating) {
-          setGenerating(false);
-          toast({
-            title: "Timeout",
-            description: "Report generation took too long. Please try again.",
-            variant: "destructive",
-          });
-        }
-      }, 300000);
+        setGenerating(false);
+        localStorage.removeItem(`analysis-timer-${unit.id}-${selectedCategory}`);
+        window.location.reload();
+      }, 120000);
 
     } catch (error) {
       setGenerating(false);
+      setTimeRemaining(120);
+      localStorage.removeItem(`analysis-timer-${unit.id}-${selectedCategory}`);
       toast({
         title: "Error",
         description: "Failed to generate analysis report",
@@ -236,6 +238,30 @@ export function UnitAnalysisTab({ unit }: UnitAnalysisTabProps) {
                 </Button>
               </div>
             </div>
+
+            {generating && (
+              <Card className="border-2 border-blue-500">
+                <CardContent className="pt-6">
+                  <div className="flex flex-col items-center space-y-4">
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                      <span className="text-lg font-medium">Generating Report...</span>
+                    </div>
+                    <div className="w-full max-w-md">
+                      <div className="h-2 bg-gray-200 rounded-full">
+                        <div 
+                          className="h-2 bg-blue-500 rounded-full transition-all duration-1000"
+                          style={{ width: `${((120 - timeRemaining) / 120) * 100}%` }}
+                        ></div>
+                      </div>
+                      <div className="mt-2 text-center text-sm text-gray-600">
+                        Time remaining: {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {(loading || generating) ? (
               <div className="flex items-center justify-center p-8">
