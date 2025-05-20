@@ -70,7 +70,16 @@ export function QuestionGroup({ theme, summary, questions, week }: QuestionClust
                 <div className="flex flex-col items-start text-left">
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{question.title}</span>
-                    <Badge variant={question.is_answered ? 'secondary' : 'destructive'} className="text-xs">
+                    <Badge 
+                      variant={
+                        !question.is_answered 
+                          ? 'destructive' 
+                          : question.is_staff_answered 
+                            ? 'default' 
+                            : 'secondary'
+                      } 
+                      className="text-xs"
+                    >
                       {question.is_answered 
                         ? `Answered by ${question.is_staff_answered ? 'Staff' : 'Student'}`
                         : 'Unanswered'}
