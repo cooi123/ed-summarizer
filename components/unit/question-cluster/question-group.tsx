@@ -18,6 +18,8 @@ interface Question {
   content: string;
   url: string;
   is_answered: boolean;
+  is_staff_answered:boolean 
+  is_student_answered:boolean
   needs_attention: boolean;
   vote_count: number;
 }
@@ -69,7 +71,9 @@ export function QuestionGroup({ theme, summary, questions, week }: QuestionClust
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{question.title}</span>
                     <Badge variant={question.is_answered ? 'secondary' : 'destructive'} className="text-xs">
-                      {question.is_answered ? 'Answered' : 'Unanswered'}
+                      {question.is_answered 
+                        ? `Answered by ${question.is_staff_answered ? 'Staff' : 'Student'}`
+                        : 'Unanswered'}
                     </Badge>
                   </div>
                   <span className="text-sm text-muted-foreground line-clamp-1">
