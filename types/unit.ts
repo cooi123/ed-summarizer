@@ -16,4 +16,5 @@ export interface Unit {
   year: number;
   session: string;
   weeks: WeekConfig[];
+  last_sync_at: string
 }

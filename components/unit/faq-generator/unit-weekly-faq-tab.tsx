@@ -137,6 +137,11 @@ export function UnitWeeklyFAQ({ taskRuns, unit, onWeeklyReportStart, onWeeklyRep
         >
           <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
           {isSyncing ? 'Syncing...' : 'Sync Threads'}
+          {unit.last_sync_at && !isSyncing && (
+            <span className="text-xs text-muted-foreground ml-2">
+              Last sync: {format(new Date(unit.last_sync_at), 'MMM d, h:mm a')}
+            </span>
+          )}
         </Button>
       </div>
       <div className="space-y-4">

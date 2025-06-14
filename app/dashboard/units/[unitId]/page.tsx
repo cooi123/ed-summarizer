@@ -22,7 +22,7 @@ export default function UnitPage() {
   const unitId = params.unitId as string;
   const { user } = useUserStore();
 
-  const [activeTab, setActiveTab] = useState("question-clusters");
+  const [activeTab, setActiveTab] = useState("weekly-faq");
   const [showSemesterDialog, setShowSemesterDialog] = useState(false);
  
   // Get unit data from store - memoized selector to avoid infinite loops
@@ -140,18 +140,19 @@ export default function UnitPage() {
         onValueChange={setActiveTab}
       >
         <TabsList>
+        <TabsTrigger
+            value="weekly-faq"
+          >
+            <HelpCircle className="h-5 w-5" />
+            Weekly Thread Analytics
+          </TabsTrigger>
           <TabsTrigger
             value="question-clusters" 
           >
             <MessageSquare className="h-5 w-5" />
             Question Clusters
           </TabsTrigger>
-          <TabsTrigger
-            value="weekly-faq"
-          >
-            <HelpCircle className="h-5 w-5" />
-            Generate Weekly FAQ
-          </TabsTrigger>
+
           <TabsTrigger value="analysis">
             <BarChart className="h-5 w-5" />
             Unit Analysis
@@ -162,23 +163,25 @@ export default function UnitPage() {
           </TabsTrigger>
         </TabsList>
 
+
+
+        <TabsContent value="weekly-faq" className="space-y-4">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold">Weekly FAQ Generator</h2>
+            <p className="text-muted-foreground">Generate weekly FAQ templates based on categorized questions. This tool helps create structured responses to common student inquiries organized by topic. Make sure to sync threads first to get the latest questions before running the analysis</p>
+          </div>
+          <UnitWeeklyFAQ
+            taskRuns={taskRuns}
+            unit={unit}
+          />
+        </TabsContent>
+
         <TabsContent value="question-clusters" className="space-y-4">
           <div className="mb-4">
             <h2 className="text-lg font-semibold">Question Clusters</h2>
             <p className="text-muted-foreground">View and analyze clusters of questions grouped by common themes, filtered by weeks. This helps identify patterns and recurring topics in student questions.</p>
           </div>
           <QuestionClusterGroup unit={unit} />
-        </TabsContent>
-
-        <TabsContent value="weekly-faq" className="space-y-4">
-          <div className="mb-4">
-            <h2 className="text-lg font-semibold">Weekly FAQ Generator</h2>
-            <p className="text-muted-foreground">Generate weekly FAQ templates based on categorized questions. This tool helps create structured responses to common student inquiries organized by topic.</p>
-          </div>
-          <UnitWeeklyFAQ
-            taskRuns={taskRuns}
-            unit={unit}
-          />
         </TabsContent>
 
         <TabsContent value="analysis" className="space-y-4">
