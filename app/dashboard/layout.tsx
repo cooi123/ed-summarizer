@@ -7,6 +7,7 @@ import { useUser } from "@clerk/nextjs";
 import { DashboardNav } from "@/components/dashboard-nav";
 import { UserNav } from "@/components/user-nav";
 import useUserStore from "@/store/userStore";
+import { useBackendHealth } from "@/hooks/useBackendHealth";
 
 export default function DashboardLayout({
   children,
@@ -17,6 +18,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const { fetchUser, needsSignup, loading } = useUserStore();
   const [isChecking, setIsChecking] = useState(true);
+  const { isHealthy, isChecking: isHealthChecking } = useBackendHealth();
   
 
   useEffect(() => {
@@ -36,10 +38,26 @@ export default function DashboardLayout({
   }, [user, isLoaded, needsSignup, router, fetchUser]);
 
   // Show loading state while checking
-  if (!isLoaded || loading || isChecking) {
+  if (!isLoaded || loading || isChecking || isHealthChecking) {
     return (
       <div className="flex h-screen items-center justify-center">
-        Loading...
+        <div className="text-center">
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show backend cold start message
+  if (isHealthy === false) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+          <p className="text-sm text-muted-foreground">Backend is starting up, please wait...</p>
+          <p className="text-xs text-muted-foreground mt-1">This may take a few moments</p>
+        </div>
       </div>
     );
   }

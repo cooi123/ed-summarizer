@@ -1,34 +1,35 @@
-import { getTaskById } from "@/lib/units";
-
 /**
  * API endpoint generator functions for building URLs with parameters
  */
 export const apiEndpoints = {
+  health: {
+    get: () => `/health`,
+  },
   // User endpoints
   user: {
-    get: () => `/users/me`,
-    update: () => `/users/me`,
-    updateSelectedUnits: () => `/users/me/selected-units`,
+    get: () => `/api/v1/users/me`,
+    update: () => `/api/v1/users/me`,
+    updateSelectedUnits: () => `/api/v1/users/me/selected-units`,
   },
 
   // Unit endpoints
   units: {
-    getById: (unitId: string) => `/units/${unitId}`,
-    update: (unitId: string) => `/units/${unitId}`,
-    getThreads: (unitId: string) => `/units/${unitId}/threads`,
-    syncThreads: (unitId: string, userId: string) => `/units/${unitId}/sync-threads?user_id=${userId}`,
-    getWeeklyData: (unitId: string) => `/units/${unitId}/weeks`,
+    getById: (unitId: string) => `/api/v1/units/${unitId}`,
+    update: (unitId: string) => `/api/v1/units/${unitId}`,
+    getThreads: (unitId: string) => `/api/v1/units/${unitId}/threads`,
+    syncThreads: (unitId: string, userId: string) => `/api/v1/units/${unitId}/sync-threads?user_id=${userId}`,
+    getWeeklyData: (unitId: string) => `/api/v1/units/${unitId}/weeks`,
 
-    getQuestionClusters: (unitId: string) => `/question-clusters/units/${unitId}/clusters`,
-    getCategories: (unitId: string) => `/units/${unitId}/categories`,
+    getQuestionClusters: (unitId: string) => `/api/v1/question-clusters/units/${unitId}/clusters`,
+    getCategories: (unitId: string) => `/api/v1/units/${unitId}/categories`,
   },
 
   tasks: {
-    getByUnitId: (unitId: string) => `/tasks/${unitId}`,
-    runTask: () => `/tasks/run_chain/`,
-    getTaskStatus: (taskId: string) => `/tasks/status/${taskId}`,
-    getTaskById: (taskId: string) => `/tasks/task/${taskId}`,
-    runAnalysis: () => `/tasks/run_unit_trend_analysis/`,
-    getAnalysisReport: (unitId:string, category:string) => `/tasks/unit_trend_analysis_report/${unitId}/${category}`,
+    getByUnitId: (unitId: string) => `/api/v1/tasks/${unitId}`,
+    runTask: () => `/api/v1/tasks/run_chain/`,
+    getTaskStatus: (taskId: string) => `/api/v1/tasks/status/${taskId}`,
+    getTaskById: (taskId: string) => `/api/v1/tasks/task/${taskId}`,
+    runAnalysis: () => `/api/v1/tasks/run_unit_trend_analysis/`,
+    getAnalysisReport: (unitId:string, category:string) => `/api/v1/tasks/unit_trend_analysis_report/${unitId}/${category}`,
   }
 };
