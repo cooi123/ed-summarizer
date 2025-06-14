@@ -169,8 +169,22 @@ export function SemesterSelectionDialog({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Select Semester</DialogTitle>
-          <DialogDescription>
-            Choose a year and semester to generate the week configuration
+          <DialogDescription className="space-y-4">
+            <p>Choose a year and semester this unit is running in.</p>
+            <div className="mt-4 space-y-3 text-sm">
+              <p className="font-medium">After selecting the semester, you can:</p>
+              <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
+                <li>Complete unit information in the <span className="text-primary">Unit Settings</span> tab</li>
+                <li>Sync threads from Ed Forum to get started</li>
+                <li>Run weekly thread analysis to:
+                  <ul className="list-disc list-inside ml-4 mt-1">
+                    <li>Generate FAQs</li>
+                    <li>Create question clusters (viewable in Question Cluster tab)</li>
+                  </ul>
+                </li>
+                <li>Run assessment analysis for deeper insights</li>
+              </ol>
+            </div>
           </DialogDescription>
         </DialogHeader>
         
