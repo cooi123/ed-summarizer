@@ -8,7 +8,7 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Calendar, History } from "lucide-react";
 import { TaskRun } from "@/store/taskStore";
 import { WeekConfig } from "@/types/unit";
 import { Unit } from "@/types/unit";
@@ -24,6 +24,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface UnitReportHistoryProps {
   taskRuns: TaskRun[];
@@ -50,11 +51,14 @@ interface UnitWeekData {
   weeks: WeekData[];
 }
 
+type ViewMode = "current" | "all"
+
 export function UnitWeeklyFAQ({ taskRuns, unit, onWeeklyReportStart, onWeeklyReportEnd }: UnitReportHistoryProps) {
   const { toast } = useToast();
   const { user } = useUserStore();
   const [selectedRun, setSelectedRun] = useState<TaskRun | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("current");
 
   const {
     weeklyData,
@@ -127,9 +131,40 @@ export function UnitWeeklyFAQ({ taskRuns, unit, onWeeklyReportStart, onWeeklyRep
     (a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
   );
 
+  // Find current week
+  const currentWeek = sortedWeeks.find(week => isCurrentWeek(week));
+
+  // Filter weeks based on view mode
+  const getFilteredWeeks = () => {
+    switch (viewMode) {
+      case "current":
+        return currentWeek ? [currentWeek] : [];
+      case "all":
+        return sortedWeeks;
+      default:
+        return [];
+    }
+  };
+
+  const filteredWeeks = getFilteredWeeks();
+
   return (
     <>
-      <div className="flex justify-end mb-4">
+      <div className="flex justify-between items-center mb-4">
+        <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)}>
+          <TabsList>
+            <TabsTrigger value="current" className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Current Week
+            </TabsTrigger>
+            <TabsTrigger value="all" className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              All Weeks
+            </TabsTrigger>
+      
+          </TabsList>
+        </Tabs>
+
         <Button
           onClick={handleSyncThreads}
           disabled={isSyncing}
@@ -144,72 +179,84 @@ export function UnitWeeklyFAQ({ taskRuns, unit, onWeeklyReportStart, onWeeklyRep
           )}
         </Button>
       </div>
+
       <div className="space-y-4">
-        <Accordion type="single" collapsible className="w-full">
-          {sortedWeeks.map((week) => {
-            const weekData = weeklyData.find(w => w.weekId === week.weekId);
-            const isBreak = week.weekType === 'midsem' || week.weekType === 'swotvac';
-            
-            return (
-              <AccordionItem 
-                key={week.weekId} 
-                value={week.weekId.toString()} 
-                className={`${isCurrentWeek(week) ? 'border-2 border-primary shadow-lg bg-primary/10 rounded-lg p-2 mb-2' : ''} ${isBreak ? getBreakStyles(week.weekType) : ''}`}
-              >
-                <AccordionTrigger className="hover:no-underline">
-                  <div className="flex items-center gap-4">
-                    {isBreak ? (
-                      <div className={`px-2 py-1 rounded-md text-xs ${getBreakStyles(week.weekType)}`}>
-                        {getBreakLabel(week.weekType)}
-                      </div>
-                    ) : (
-                      <span>Week {week.teachingWeekNumber}</span>
-                    )}
-                    <Badge variant="outline">
-                      {format(new Date(week.startDate), 'dd/MM/yyyy')} -{" "}
-                      {format(new Date(week.endDate), 'dd/MM/yyyy')}
-                    </Badge>
+        {viewMode === "current" && !currentWeek ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>No Current Week</CardTitle>
+              <CardDescription>
+                There is no active teaching week at the moment.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        ) : (
+          <Accordion type="single" collapsible className="w-full">
+            {filteredWeeks.map((week) => {
+              const weekData = weeklyData.find(w => w.weekId === week.weekId);
+              const isBreak = week.weekType === 'midsem' || week.weekType === 'swotvac';
+              
+              return (
+                <AccordionItem 
+                  key={week.weekId} 
+                  value={week.weekId.toString()} 
+                  className={`${isCurrentWeek(week) ? 'border-2 border-primary shadow-lg bg-primary/10 rounded-lg p-2 mb-2' : ''} ${isBreak ? getBreakStyles(week.weekType) : ''}`}
+                >
+                  <AccordionTrigger className="hover:no-underline">
+                    <div className="flex items-center gap-4">
+                      {isBreak ? (
+                        <div className={`px-2 py-1 rounded-md text-xs ${getBreakStyles(week.weekType)}`}>
+                          {getBreakLabel(week.weekType)}
+                        </div>
+                      ) : (
+                        <span>Week {week.teachingWeekNumber}</span>
+                      )}
+                      <Badge variant="outline">
+                        {format(new Date(week.startDate), 'dd/MM/yyyy')} -{" "}
+                        {format(new Date(week.endDate), 'dd/MM/yyyy')}
+                      </Badge>
+                      {weekData && (
+                        <>
+                          <Badge variant="secondary">{weekData.threadCount} threads</Badge>
+                          {weekData.faqReports.length > 0 && (
+                            <Badge variant="default">{weekData.faqReports.length} FAQ generated</Badge>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
                     {weekData && (
                       <>
-                        <Badge variant="secondary">{weekData.threadCount} threads</Badge>
-                        {weekData.faqReports.length > 0 && (
-                          <Badge variant="default">{weekData.faqReports.length} FAQ generated</Badge>
+                        {weekData.categoryCounts && Object.entries(weekData.categoryCounts).length > 0 && (
+                          <div className="mb-4">
+                            <h4 className="text-sm font-medium mb-2">Category Distribution:</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {Object.entries(weekData.categoryCounts).map(([category, count]) => (
+                                <Badge key={category} variant="outline" className="flex items-center gap-1">
+                                  <span>{category}:</span>
+                                  <span className="font-semibold">{count}</span>
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
                         )}
+                        <FAQWeeklyCard
+                          week={week}
+                          threads={[]}
+                          reports={weekData.faqReports}
+                          unit={unit}
+                          onReportStart={onWeeklyReportStart}
+                          onReportEnd={onWeeklyReportEnd}
+                        />
                       </>
                     )}
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  {weekData && (
-                    <>
-                      {weekData.categoryCounts && Object.entries(weekData.categoryCounts).length > 0 && (
-                        <div className="mb-4">
-                          <h4 className="text-sm font-medium mb-2">Category Distribution:</h4>
-                          <div className="flex flex-wrap gap-2">
-                            {Object.entries(weekData.categoryCounts).map(([category, count]) => (
-                              <Badge key={category} variant="outline" className="flex items-center gap-1">
-                                <span>{category}:</span>
-                                <span className="font-semibold">{count}</span>
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      <FAQWeeklyCard
-                        week={week}
-                        threads={[]}
-                        reports={weekData.faqReports}
-                        unit={unit}
-                        onReportStart={onWeeklyReportStart}
-                        onReportEnd={onWeeklyReportEnd}
-                      />
-                    </>
-                  )}
-                </AccordionContent>
-              </AccordionItem>
-            );
-          })}
-        </Accordion>
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
+          </Accordion>
+        )}
       </div>
 
       {selectedRun && (
