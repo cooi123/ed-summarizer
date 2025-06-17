@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { apiEndpoints } from "@/const/apiEndpoints";
 
 export function SignupForm() {
   const { user } = useUser();
@@ -33,7 +34,7 @@ export function SignupForm() {
     setIsLoading(true);
 
     try {
-      await apiService.post("/users/", {
+      await apiService.post(apiEndpoints.user.create(), {
         name,
         email,
         api_key: apiKey,
