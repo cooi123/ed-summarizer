@@ -82,10 +82,8 @@ export function UnitAnalysisTab({ unit }: UnitAnalysisTabProps) {
       if (!isCompletedStatus(currentTransaction.status)) {
         setPolling(true);
       }
-    } else {
-      localStorage.removeItem(`analysis-transaction-${unit.id}`);
-    }
-  }, [currentTransaction, unit.id]);
+    } 
+  }, [currentTransaction?.progress, unit.id]);
 
   const handleCancelTask = async () => {
     if (!currentTransaction) return;
