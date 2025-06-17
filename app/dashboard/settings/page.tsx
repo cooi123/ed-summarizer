@@ -144,7 +144,7 @@ export default function SettingsPage() {
     setApiKeyError(null);
     //test the api key using ed forum route   
     try {
-      const testApiKey = await apiService.post<{ valid: boolean }, { apiKey: string }>('/proxy/ed-forum/validate-key', {
+      const testApiKey = await apiService.post<{ valid: boolean }, { apiKey: string }>('/api/v1/proxy/ed-forum/validate-key', {
         apiKey
       });
 
