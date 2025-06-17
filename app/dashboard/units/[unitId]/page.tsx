@@ -14,6 +14,9 @@ import { QuestionClusterGroup } from "@/components/unit/question-cluster/questio
 import { SemesterSelectionDialog } from "@/components/unit/semester-selection-dialog";
 import { WeekConfig } from "@/types/unit";
 import { UnitAnalysisTab } from "@/components/unit/unit-analysis/unit-analysis-tab";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 export default function UnitPage() {
   const params = useParams();
@@ -134,72 +137,76 @@ export default function UnitPage() {
       </div>
 
       {polling && <TaskProgressBar />}
-      <Tabs
-        defaultValue="current"
-        value={activeTab}
-        onValueChange={setActiveTab}
-      >
-        <TabsList>
-        <TabsTrigger
-            value="weekly-faq"
-          >
-            <HelpCircle className="h-5 w-5" />
-            Weekly Thread Analytics
-          </TabsTrigger>
-          <TabsTrigger
-            value="question-clusters" 
-          >
-            <MessageSquare className="h-5 w-5" />
-            Question Clusters
-          </TabsTrigger>
 
-          <TabsTrigger value="analysis">
-            <BarChart className="h-5 w-5" />
-            Unit Analysis
-          </TabsTrigger>
-          <TabsTrigger value="settings">
-            <Settings className="mr-2 h-4 w-4" />
-            Unit Settings
-          </TabsTrigger>
-        </TabsList>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => router.push(`/dashboard/units/${unitId}/weekly-faq`)}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <HelpCircle className="h-5 w-5" />
+              Weekly Thread Analytics
+            </CardTitle>
+            <CardDescription>
+              Generate weekly FAQ templates based on categorized questions
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <Badge variant="secondary">
+                {taskRuns.length} reports generated
+              </Badge>
+              <Button variant="ghost" size="sm">
+                View Details →
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => router.push(`/dashboard/units/${unitId}/question-clusters`)}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Question Clusters
+            </CardTitle>
+            <CardDescription>
+              View and analyze clusters of questions grouped by common themes
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <Badge variant="secondary">
+                {unit.weeks?.length || 0} weeks analyzed
+              </Badge>
+              <Button variant="ghost" size="sm">
+                View Details →
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => router.push(`/dashboard/units/${unitId}/analysis`)}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart className="h-5 w-5" />
+              Unit Analysis
+            </CardTitle>
+            <CardDescription>
+              Comprehensive analysis of unit assessments and performance
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <Badge variant="secondary">
+                View Insights
+              </Badge>
+              <Button variant="ghost" size="sm">
+                View Details →
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
 
-
-        <TabsContent value="weekly-faq" className="space-y-4">
-          <div className="mb-4">
-            <h2 className="text-lg font-semibold">Weekly FAQ Generator</h2>
-            <p className="text-muted-foreground">Generate weekly FAQ templates based on categorized questions. This tool helps create structured responses to common student inquiries organized by topic. Make sure to sync threads first to get the latest questions before running the analysis</p>
-          </div>
-          <UnitWeeklyFAQ
-            taskRuns={taskRuns}
-            unit={unit}
-          />
-        </TabsContent>
-
-        <TabsContent value="question-clusters" className="space-y-4">
-          <div className="mb-4">
-            <h2 className="text-lg font-semibold">Question Clusters</h2>
-            <p className="text-muted-foreground">View and analyze clusters of questions grouped by common themes, filtered by weeks. This helps identify patterns and recurring topics in student questions.</p>
-          </div>
-          <QuestionClusterGroup unit={unit} />
-        </TabsContent>
-
-        <TabsContent value="analysis" className="space-y-4">
-          <div className="mb-4">
-            <h2 className="text-lg font-semibold">Unit Analysis</h2>
-            <p className="text-muted-foreground">Comprehensive analysis of unit assessments, including common questions, misconceptions, and recommendations per assessment. Gain insights into student performance and learning patterns.</p>
-          </div>
-          <UnitAnalysisTab unit={unit} />
-        </TabsContent>
-
-        <TabsContent value="settings" className="space-y-6">
-          <div className="mb-4">
-            <h2 className="text-lg font-semibold">Unit Settings</h2>
-            <p className="text-muted-foreground">Configure and manage unit parameters, including semester details, assessment settings, and other unit-specific configurations.</p>
-          </div>
-          <UnitSettings unit={unit} unitId={unitId} />
-        </TabsContent>
-      </Tabs>
+      </div>
 
       <SemesterSelectionDialog
         isOpen={showSemesterDialog}
