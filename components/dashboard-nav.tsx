@@ -7,14 +7,9 @@ import { cn } from "@/lib/utils"
 
 const navItems = [
   {
-    title: "Dashboard",
+    title: "Home",
     href: "/dashboard",
     icon: Home,
-  },
-  {
-    title: "My Units",
-    href: "/dashboard/units",
-    icon: Layers,
   },
   {
     title: "Settings",
