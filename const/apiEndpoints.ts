@@ -9,6 +9,7 @@ export const apiEndpoints = {
   user: {
     get: () => `/api/v1/users/me`,
     update: () => `/api/v1/users/me`,
+    create: () => `/api/v1/users/`,
     updateSelectedUnits: () => `/api/v1/users/me/selected-units`,
   },
 
