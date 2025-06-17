@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -11,11 +10,30 @@ import { apiService } from "@/lib/api";
 import { PlayCircle, Eye, Download } from "lucide-react";
 import useUserStore from "@/store/userStore";
 import { Task } from "@/types/task";
-import ReactMarkdown from 'react-markdown';
 import { format, parseISO } from "date-fns";
-import { ReportPreviewDialog } from "../unit-report-preview-dialog";
-import { downloadReport, parseDate } from "@/util/shared";
 import { AnalysisReportPreviewDialog } from "../unit-analysis/unit-analysis-preview-dialog";
+import { downloadReport, parseDate } from "@/util/shared";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+
+interface AnalysisReportSummary {
+  task_id: string;
+  category: string;
+  created_at: string;
+  status: string;
+  error_message: string | null;
+}
+
+interface TransactionStatus {
+  transactionId: string;
+  status: string;
+  progress: number;
+  name: string;
+}
 
 interface RelatedQuestion {
   theme: string;
@@ -34,54 +52,105 @@ interface UnitAnalysisTabProps {
 
 export function UnitAnalysisTab({ unit }: UnitAnalysisTabProps) {
   const [categories, setCategories] = useState<string[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<Record<string, AnalysisReportSummary[]>>({});
   const [loading, setLoading] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState<number>(120); // 2 minutes in seconds
+  const [currentTransaction, setCurrentTransaction] = useState<TransactionStatus | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useUserStore();
+  const [polling, setPolling] = useState(false);
 
-  // Timer effect for countdown
+  const isValidStatus = (status: string): status is TransactionStatus["status"] => {
+    return ["received", "pending", "completed", "success", "failure", "error"].includes(status);
+  };
+
+  // Load transaction from localStorage on mount
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (generating && timeRemaining > 0) {
-      interval = setInterval(() => {
-        setTimeRemaining((prev) => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [generating, timeRemaining]);
-
-  // Check for existing timer on mount
-  useEffect(() => {
-    const checkExistingTimer = () => {
-      const timerData = localStorage.getItem(`analysis-timer-${unit.id}-${selectedCategory}`);
-      if (timerData) {
-        const { endTime } = JSON.parse(timerData);
-        const now = new Date().getTime();
-        const timeLeft = endTime - now;
-
-        if (timeLeft > 0) {
-          setGenerating(true);
-          setTimeRemaining(Math.ceil(timeLeft / 1000));
-          setTimeout(() => {
-            setGenerating(false);
-            window.location.reload();
-          }, timeLeft);
-        } else {
-          localStorage.removeItem(`analysis-timer-${unit.id}-${selectedCategory}`);
-          window.location.reload();
-        }
+    const savedTransaction = localStorage.getItem(`analysis-transaction-${unit.id}`);
+    if (savedTransaction) {
+      const parsed = JSON.parse(savedTransaction);
+      if (isValidStatus(parsed.status)) {
+        setCurrentTransaction(parsed);
       }
-    };
-
-    if (selectedCategory) {
-      checkExistingTimer();
     }
-  }, [unit.id, selectedCategory]);
+  }, [unit.id]);
+  // Save transaction to localStorage whenever it changes
+  useEffect(() => {
+    if (currentTransaction) {
+      localStorage.setItem(`analysis-transaction-${unit.id}`, JSON.stringify(currentTransaction));
+      if (!isCompletedStatus(currentTransaction.status)) {
+        setPolling(true);
+      }
+    } else {
+      localStorage.removeItem(`analysis-transaction-${unit.id}`);
+    }
+  }, [currentTransaction, unit.id]);
+
+  const handleCancelTask = async () => {
+    if (!currentTransaction) return;
+    
+    try {
+      await apiService.post(apiEndpoints.tasks.cancelTask(currentTransaction.transactionId));
+      setCurrentTransaction(null);
+      toast({
+        title: "Task Cancelled",
+        description: "The analysis task has been cancelled.",
+      });
+    } catch (error) {
+      console.error('Error cancelling task:', error);
+      toast({
+        title: "Error",
+        description: "Failed to cancel the task. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Fetch all analysis reports for the unit
+  const fetchAllAnalysisReports = async () => {
+    try {
+      const response = await apiService.get<AnalysisReportSummary[]>(
+        apiEndpoints.tasks.getAllAnalysisReports(unit.id.toString())
+      );
+      
+      // Group tasks by category
+      const tasksByCategory: Record<string, AnalysisReportSummary[]> = {};
+      response.forEach(task => {
+        if (!tasksByCategory[task.category]) {
+          tasksByCategory[task.category] = [];
+        }
+        tasksByCategory[task.category].push(task);
+      });
+      
+      setTasks(tasksByCategory);
+    } catch (error) {
+      console.error('Error fetching analysis reports:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch analysis reports",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Fetch detailed task data when previewing
+  const fetchTaskDetails = async (transactionId: string): Promise<Task | null> => {
+    try {
+      const response = await apiService.get<Task>(
+        apiEndpoints.tasks.getAnalysisReport(transactionId)
+      );
+      return response;
+    } catch (error) {
+      console.error('Error fetching task details:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch task details",
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
 
   // Fetch categories on component mount
   useEffect(() => {
@@ -90,84 +159,125 @@ export function UnitAnalysisTab({ unit }: UnitAnalysisTabProps) {
         const response = await apiService.get<string[]>(apiEndpoints.units.getCategories(unit.id));
         response.sort();
         setCategories(response);
+        // Initialize tasks for each category
+        const initialTasks: Record<string, AnalysisReportSummary[]> = {};
+        response.forEach(category => {
+          initialTasks[category] = [];
+        });
+        setTasks(initialTasks);
+        
+        // Fetch all analysis reports after categories are loaded
+        await fetchAllAnalysisReports();
       } catch (error) {
-      
+        toast({
+          title: "Error",
+          description: "Failed to fetch categories",
+          variant: "destructive",
+        });
       }
     };
 
     fetchCategories();
-  }, [unit.id, toast]);
+  }, [unit.id]);
 
-  // Fetch tasks when category changes
   useEffect(() => {
-    const fetchTasks = async () => {
-      if (!selectedCategory) return;
-      
-      setLoading(true);
+    let pollInterval: NodeJS.Timeout;
+
+    const pollTaskStatus = async () => {
+      if (!currentTransaction?.transactionId) return;
+
       try {
-        const response = await apiService.get<Task>(apiEndpoints.tasks.getAnalysisReport(unit.id.toString(), selectedCategory));
-        if (response) {
-          setTasks([response]); // Store as array with single item
+        const response = await apiService.get<TransactionStatus>(
+          apiEndpoints.tasks.getTaskStatus(currentTransaction.transactionId)
+        );
+
+        console.log("response", response);
+
+        setCurrentTransaction(response);
+
+        if (isCompletedStatus(response.status)) {
+          setPolling(false);
+          clearInterval(pollInterval);
+          
+          // Refetch all reports when task is completed
+          await fetchAllAnalysisReports();
         }
       } catch (error) {
-      
-      } finally {
-        setLoading(false);
+        console.error("Error polling task status:", error);
+        setPolling(false);
+        clearInterval(pollInterval);
       }
     };
 
-    fetchTasks();
-  }, [unit.id, selectedCategory, toast]);
+    if (polling) {
+      // Poll immediately on mount
+      pollTaskStatus();
+      
+      // Then poll every 5 seconds
+      pollInterval = setInterval(pollTaskStatus, 5000);
+    }
 
-  const handleCategoryChange = (categoryId: string) => {
-    setSelectedCategory(categoryId);
-  };
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
+  }, [polling]); // Only depend on polling state
 
-  const handleGenerateReport = async () => {
-    if (!selectedCategory) {
+  const handleGenerateReport = async (category: string) => {
+    if (currentTransaction) {
       toast({
-        title: "Error",
-        description: "Please select a category first",
+        title: "Analysis in Progress",
+        description: "Please wait for the current analysis to complete before starting a new one.",
         variant: "destructive",
       });
       return;
     }
 
-    setGenerating(true);
-    setTimeRemaining(120); // Reset timer to 2 minutes
     try {
-      await apiService.post(
+      console.log('Starting analysis for category:', category);
+      const response = await apiService.post<{ 
+        transactionId: string; 
+        status: string; 
+        progress: number; 
+      }, { 
+        unitId: string; 
+        userId: string; 
+        startDate: string; 
+        endDate: string; 
+        category: string; 
+      }>(
         apiEndpoints.tasks.runAnalysis(),
-        { 
-          unitId: unit.id.toString(), 
-          userId: user?.id, 
-          startDate: unit.weeks[0].startDate, 
-          endDate: unit.weeks[unit.weeks.length - 1].endDate, 
-          category: selectedCategory 
+        {
+          unitId: unit.id.toString(),
+          userId: user?.id || "",
+          startDate: unit.weeks[0].startDate,
+          endDate: unit.weeks[unit.weeks.length - 1].endDate,
+          category: category
         }
       );
 
-      const endTime = new Date().getTime() + 120000;
-      localStorage.setItem(
-        `analysis-timer-${unit.id}-${selectedCategory}`,
-        JSON.stringify({ endTime })
-      );
+      if (!isValidStatus(response.status)) {
+        throw new Error(`Invalid status received: ${response.status}`);
+      }
+
+      const validatedStatus = response.status as TransactionStatus["status"];
+      console.log('Analysis started with response:', response);
+
+      setCurrentTransaction({
+        transactionId: response.transactionId,
+        status: validatedStatus,
+        progress: response.progress,
+        name: category
+      });
 
       toast({
         title: "Report Generation Started",
         description: "Please wait while we generate your report.",
       });
 
-      setTimeout(() => {
-        setGenerating(false);
-        localStorage.removeItem(`analysis-timer-${unit.id}-${selectedCategory}`);
-        window.location.reload();
-      }, 120000);
-
     } catch (error) {
-      setGenerating(false);
-      setTimeRemaining(120);
-      localStorage.removeItem(`analysis-timer-${unit.id}-${selectedCategory}`);
+      console.error('Error starting analysis:', error);
       toast({
         title: "Error",
         description: "Failed to generate analysis report",
@@ -176,9 +286,51 @@ export function UnitAnalysisTab({ unit }: UnitAnalysisTabProps) {
     }
   };
 
-  const handlePreviewReport = (task: Task) => {
-    setSelectedTask(task);
-    setIsPreviewOpen(true);
+  const handlePreviewReport = async (transactionId: string) => {
+    setLoading(true);
+    try {
+      const detailedTask = await fetchTaskDetails(transactionId);
+      if (detailedTask) {
+        setSelectedTask(detailedTask);
+        setIsPreviewOpen(true);
+      }
+    } catch (error) {
+      console.error('Error previewing report:', error);
+      toast({
+        title: "Error",
+        description: "Failed to preview report",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownloadReport = async (task: AnalysisReportSummary) => {
+    setLoading(true);
+    try {
+      const detailedTask = await fetchTaskDetails(task.task_id);
+      if (detailedTask && detailedTask.result && 'report' in detailedTask.result) {
+        const content = detailedTask.result.report as string;
+        const formattedDate = formatDate(task.created_at).split(' ')[0].replace(/\//g, '-');
+        const fileName = `${unit.code}-${unit.name.replace(/\s+/g, "-").toLowerCase()}-analysis-${task.category}-${formattedDate}.md`;
+
+        downloadReport(content, fileName);
+        toast({
+          title: "Download Started",
+          description: `Downloading report: ${fileName}`,
+        });
+      }
+    } catch (error) {
+      console.error('Error downloading report:', error);
+      toast({
+        title: "Error",
+        description: "Failed to download report",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatDate = (dateString: string | Date) => {
@@ -190,142 +342,204 @@ export function UnitAnalysisTab({ unit }: UnitAnalysisTabProps) {
     }
   };
 
-  const handleDownloadReport = (task: Task) => {
-    if (!task || !unit || !task.result || !('report' in task.result)) return;
-
-    const content = task.result.report as string;
-    const formattedDate = formatDate(task.created_at).split(' ')[0].replace(/\//g, '-');
-    const fileName = `${unit.code}-${unit.name.replace(/\s+/g, "-").toLowerCase()}-analysis-${selectedCategory}-${formattedDate}.md`;
-
-    downloadReport(content, fileName);
-    toast({
-      title: "Download Started",
-      description: `Downloading report: ${fileName}`,
-    });
+  const getStatusColor = (status: string) => {
+    if (status === "completed" || status === "success") {
+      return "bg-green-500";
+    }
+    if (status === "failure" || status === "error") {
+      return "bg-red-500";
+    }
+    if (status === "received" || status === "pending") {
+      return "bg-blue-500";
+    }
+    // For any other status (like fetch_and_store_threads_by_unit_by_category)
+    return "bg-blue-500";
   };
+
+  const getStatusText = (status: string, progress: number) => {
+    if (status === "completed" || status === "success") {
+      return "Completed";
+    }
+    if (status === "failure") {
+      return "Failed";
+    }
+    if (status === "error") {
+      return "Error";
+    }
+    if (status === "received") {
+      return "Received";
+    }
+    if (status === "pending") {
+      return `Processing (${Math.round(progress)}%)`;
+    }
+    // For any other status, show it in a more readable format
+    return `${status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} (${Math.round(progress)}%)`;
+  };
+
+  const isCompletedStatus = (status: string) => {
+    return ["completed", "success", "failure", "error"].includes(status);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Unit Analysis</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex flex-col space-y-2">
-              <label className="text-sm font-medium">Select Category</label>
-              <div className="flex items-center gap-4">
-                <Select
-                  value={selectedCategory}
-                  onValueChange={handleCategoryChange}
-                >
-                  <SelectTrigger className="w-[300px]">
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category} value={category}>{category}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button 
-                  onClick={handleGenerateReport}
-                  disabled={!selectedCategory || generating}
-                  className="flex items-center gap-2"
-                >
-                  <PlayCircle className="h-4 w-4" />
-                  {generating ? "Generating..." : "Run Report"}
-                </Button>
-              </div>
-            </div>
-
-            {generating && (
-              <Card className="border-2 border-blue-500">
-                <CardContent className="pt-6">
-                  <div className="flex flex-col items-center space-y-4">
-                    <div className="flex items-center space-x-2">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                      <span className="text-lg font-medium">Generating Report...</span>
-                    </div>
-                    <div className="w-full max-w-md">
-                      <div className="h-2 bg-gray-200 rounded-full">
-                        <div 
-                          className="h-2 bg-blue-500 rounded-full transition-all duration-1000"
-                          style={{ width: `${((120 - timeRemaining) / 120) * 100}%` }}
-                        ></div>
-                      </div>
-                      <div className="mt-2 text-center text-sm text-gray-600">
-                        Time remaining: {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {(loading || generating) ? (
-              <div className="flex items-center justify-center p-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-              </div>
-            ) : tasks.length > 0 ? (
-              <div className="space-y-4">
-                <h3 className="font-medium">Generated Reports</h3>
-                <div className="space-y-2">
-                  {tasks.map((task) => (
-                    <Card key={task.id} className="hover:bg-muted/20">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg flex items-center justify-between">
-                          <div className="flex flex-col">
-                            <span className="font-medium">{task.name || 'Analysis Report'}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {format(parseDate(task.created_at), 'dd/MM/yyyy HH:mm')}
-                            </span>
-                          </div>
-                          <span
-                            className={`text-sm font-semibold ${
-                              task.status === "completed"
-                                ? "text-green-500"
-                                : task.status === "failed"
-                                ? "text-red-500"
-                                : "text-amber-500"
-                            }`}
-                          >
-                            {task.status.charAt(0).toUpperCase() + task.status.slice(1)}
-                          </span>
-                        </CardTitle>
-                        <CardDescription>
-                          <div className="pt-2 flex space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handlePreviewReport(task)}
-                              disabled={task.status !== "completed"}
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              Preview
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDownloadReport(task)}
-                              disabled={task.status !== "completed"}
-                            >
-                              <Download className="h-4 w-4 mr-1" />
-                              Download
-                            </Button>
-                          </div>
-                        </CardDescription>
-                      </CardHeader>
-                    </Card>
-                  ))}
+      {/* loading progression */}
+      {currentTransaction && (
+        <Card className="border-2 border-blue-500 mb-6">
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center space-y-4">
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center space-x-2">
+                  {!isCompletedStatus(currentTransaction.status) && polling && (
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                  )}
+                  <span className="text-lg font-medium">
+                    {isCompletedStatus(currentTransaction.status) 
+                      ? `Report for ${currentTransaction.name} ${getStatusText(currentTransaction.status, currentTransaction.progress).toLowerCase()}`
+                      : `Generating Report for ${currentTransaction.name}...`}
+                  </span>
+                </div>
+                <div className="flex space-x-2">
+                  {!isCompletedStatus(currentTransaction.status) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleCancelTask}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCurrentTransaction(null)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    Close
+                  </Button>
+                  {isCompletedStatus(currentTransaction.status) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handlePreviewReport(currentTransaction.transactionId)}
+                      className="flex items-center gap-2"
+                    >
+                      <Eye className="h-4 w-4" />
+                      Preview Report
+                    </Button>
+                  )}
                 </div>
               </div>
-            ) : selectedCategory ? (
-              <p className="text-muted-foreground">No analysis reports available for this category. Click "Run Report" to generate one.</p>
-            ) : null}
-          </div>
-        </CardContent>
-      </Card>
+              <div className="w-full max-w-md">
+                <div className="h-2 bg-gray-200 rounded-full">
+                  <div
+                    className={`h-2 rounded-full transition-all duration-1000 ${getStatusColor(currentTransaction.status)}`}
+                    style={{ width: `${currentTransaction.progress}%` }}
+                  ></div>
+                </div>
+                <div className="mt-2 text-center text-sm text-gray-600">
+                  {getStatusText(currentTransaction.status, currentTransaction.progress)}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Accordion type="single" collapsible className="w-full">
+        {categories.map((category) => (
+          <AccordionItem key={category} value={category}>
+            <AccordionTrigger className="hover:no-underline">
+              <div className="flex items-center gap-4">
+                <span className="font-medium">{category}</span>
+                {tasks[category]?.length > 0 && (
+                  <span className="text-sm text-muted-foreground">
+                    {tasks[category].length} report{tasks[category].length !== 1 ? 's' : ''} generated
+                  </span>
+                )}
+              </div>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="space-y-4 pt-4">
+                <div className="flex justify-end">
+                  <Button
+                    onClick={() => handleGenerateReport(category)}
+                    disabled={!!currentTransaction && !isCompletedStatus(currentTransaction?.status || "")}
+                    className="flex items-center gap-2"
+                  >
+                    <PlayCircle className="h-4 w-4" />
+                    {currentTransaction?.name === category && !isCompletedStatus(currentTransaction?.status) ? "Generating..." : "Run Report"}
+                  </Button>
+                </div>
+
+                {tasks[category]?.length > 0 ? (
+                  <div className="space-y-2">
+                    {tasks[category].map((task) => (
+                      <Card key={task.task_id} className="hover:bg-muted/20">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-lg flex items-center justify-between">
+                            <div className="flex flex-col">
+                              <span className="font-medium">{task.category}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {format(parseDate(task.created_at), 'dd/MM/yyyy HH:mm')}
+                              </span>
+                            </div>
+                            <span
+                              className={`text-sm font-semibold ${
+                                task.status === "completed"
+                                  ? "text-green-500"
+                                  : task.status === "failed"
+                                  ? "text-red-500"
+                                  : "text-amber-500"
+                              }`}
+                            >
+                              {task.status.charAt(0).toUpperCase() + task.status.slice(1)}
+                            </span>
+                          </CardTitle>
+                          <CardDescription>
+                            <div className="pt-2 flex space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handlePreviewReport(task.task_id)}
+                                disabled={task.status !== "completed"}
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                Preview
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDownloadReport(task)}
+                                disabled={task.status !== "completed"}
+                              >
+                                <Download className="h-4 w-4 mr-1" />
+                                Download
+                              </Button>
+                            </div>
+                          </CardDescription>
+                        </CardHeader>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-center py-4">
+                    No analysis reports available. Click "Run Report" to generate one.
+                  </p>
+                )}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
 
       {selectedTask && selectedTask.result && 'report' in selectedTask.result && (
         <AnalysisReportPreviewDialog
@@ -335,13 +549,13 @@ export function UnitAnalysisTab({ unit }: UnitAnalysisTabProps) {
             content: selectedTask.result.report as string,
             createdAt: formatDate(selectedTask.created_at),
             status: selectedTask.status,
-            weekInfo: `Category: ${selectedCategory}`,
+            weekInfo: `Category: ${selectedTask.category || 'Unknown'}`,
             relatedQuestions: (selectedTask.result as any).questions || [],
           }}
           unitName={`${unit.code}: ${unit.name}`}
-          fileName={`${unit.code}-${unit.name.replace(/\s+/g, "-").toLowerCase()}-analysis-${selectedCategory}-${
-            formatDate(selectedTask.created_at).split(' ')[0].replace(/\//g, '-')
-          }.md`}
+          fileName={`${unit.code}-${unit.name.replace(/\s+/g, "-").toLowerCase()}-analysis-${
+            selectedTask.category || 'unknown'
+          }-${formatDate(selectedTask.created_at).split(' ')[0].replace(/\//g, '-')}.md`}
         />
       )}
     </div>

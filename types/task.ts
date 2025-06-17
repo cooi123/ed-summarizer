@@ -8,6 +8,7 @@ export interface Task {
   status: "recieved" | "running" | "completed" | "failed";
   errorMessage?: string;
   result: object | null;
+  category?: string;
 }
 
 export interface TaskRunRequest {

@@ -30,6 +30,8 @@ export const apiEndpoints = {
     getTaskStatus: (taskId: string) => `/api/v1/tasks/status/${taskId}`,
     getTaskById: (taskId: string) => `/api/v1/tasks/task/${taskId}`,
     runAnalysis: () => `/api/v1/tasks/run_unit_trend_analysis/`,
-    getAnalysisReport: (unitId:string, category:string) => `/api/v1/tasks/unit_trend_analysis_report/${unitId}/${category}`,
+    getAnalysisReport: (taskId:string) => `/api/v1/tasks/unit_trend_analysis_report/${taskId}`,
+    getAllAnalysisReports: (unitId: string) => `/api/v1/tasks/unit_analysis_reports/${unitId}`,
+    cancelTask: (taskId: string) => `/api/v1/tasks/cancel/${taskId}`,
   }
 };
