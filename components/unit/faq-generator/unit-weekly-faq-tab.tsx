@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format, isWithinInterval } from "date-fns";
 import {
   Card,
@@ -9,13 +9,12 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Calendar, History } from "lucide-react";
-import { TaskRun } from "@/store/taskStore";
+import { TaskRun, useTaskStore, TaskRunStatusResponse } from "@/store/taskStore";
 import { WeekConfig } from "@/types/unit";
 import { Unit } from "@/types/unit";
 import { useToast } from "@/hooks/use-toast";
 import { ReportPreviewDialog } from "../unit-report-preview-dialog";
 import { Badge } from "@/components/ui/badge";
-import useUserStore from "@/store/userStore";
 import { FAQWeeklyCard } from "./faq-weekly-card";
 import { useUnitThreads } from "@/hooks/useUnitThreads";
 import {
@@ -25,6 +24,9 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { apiService } from "@/lib/api";
+import { apiEndpoints } from "@/const/apiEndpoints";
+import { isCompletedStatus } from "@/store/taskStore";
 
 interface UnitReportHistoryProps {
   taskRuns: TaskRun[];
@@ -55,10 +57,10 @@ type ViewMode = "current" | "all"
 
 export function UnitWeeklyFAQ({ taskRuns, unit, onWeeklyReportStart, onWeeklyReportEnd }: UnitReportHistoryProps) {
   const { toast } = useToast();
-  const { user } = useUserStore();
   const [selectedRun, setSelectedRun] = useState<TaskRun | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("current");
+  const { currentTaskRun, stopPolling } = useTaskStore();
 
   const {
     weeklyData,
@@ -66,6 +68,30 @@ export function UnitWeeklyFAQ({ taskRuns, unit, onWeeklyReportStart, onWeeklyRep
     isSyncing,
     handleSyncThreads,
   } = useUnitThreads(unit.id.toString(), unit.weeks || [], taskRuns);
+
+  const isValidStatus = (status: string): status is TaskRunStatusResponse["status"] => {
+    return ["received", "pending", "completed", "success", "failure", "error"].includes(status);
+  };
+
+  const handleCancelTask = async () => {
+    if (!currentTaskRun) return;
+    
+    try {
+      await apiService.post(apiEndpoints.tasks.cancelTask(currentTaskRun.transactionId));
+      stopPolling();
+      toast({
+        title: "Task Cancelled",
+        description: "The FAQ generation task has been cancelled.",
+      });
+    } catch (error) {
+      console.error('Error cancelling task:', error);
+      toast({
+        title: "Error",
+        description: "Failed to cancel the task. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const getBreakLabel = (weekType: string) => {
     switch (weekType) {
@@ -88,6 +114,8 @@ export function UnitWeeklyFAQ({ taskRuns, unit, onWeeklyReportStart, onWeeklyRep
         return 'bg-muted border-muted-foreground/20 text-muted-foreground';
     }
   };
+
+
 
   if (isLoading) {
     return (
@@ -161,7 +189,6 @@ export function UnitWeeklyFAQ({ taskRuns, unit, onWeeklyReportStart, onWeeklyRep
               <Calendar className="h-4 w-4" />
               All Weeks
             </TabsTrigger>
-      
           </TabsList>
         </Tabs>
 
@@ -179,6 +206,74 @@ export function UnitWeeklyFAQ({ taskRuns, unit, onWeeklyReportStart, onWeeklyRep
           )}
         </Button>
       </div>
+
+      {currentTaskRun && (
+        <Card className="border-2 border-blue-500 mb-6">
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center space-y-4">
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center space-x-2">
+                  {!isCompletedStatus(currentTaskRun.status) && (
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                  )}
+                  <span className="text-lg font-medium">
+                    {isCompletedStatus(currentTaskRun.status) 
+                      ? `Report for ${currentTaskRun.name} ${currentTaskRun.status.toLowerCase()}`
+                      : `Generating Report for ${currentTaskRun.name}...`}
+                  </span>
+                </div>
+                <div className="flex space-x-2">
+                  {!isCompletedStatus(currentTaskRun.status) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleCancelTask}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={stopPolling}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+              <div className="w-full max-w-md">
+                <div className="h-2 bg-gray-200 rounded-full">
+                  <div
+                    className={`h-2 rounded-full transition-all duration-1000 ${
+                      currentTaskRun.status === "completed" || currentTaskRun.status === "success"
+                        ? "bg-green-500"
+                        : currentTaskRun.status === "failure" || currentTaskRun.status === "error"
+                        ? "bg-red-500"
+                        : "bg-blue-500"
+                    }`}
+                    style={{ width: `${currentTaskRun.progress}%` }}
+                  ></div>
+                </div>
+                <div className="mt-2 text-center text-sm text-gray-600">
+                  {currentTaskRun.status === "completed" || currentTaskRun.status === "success"
+                    ? "Completed"
+                    : currentTaskRun.status === "failure"
+                    ? "Failed"
+                    : currentTaskRun.status === "error"
+                    ? "Error"
+                    : currentTaskRun.status === "received"
+                    ? "Received"
+                    : currentTaskRun.status === "pending"
+                    ? `Processing (${Math.round(currentTaskRun.progress)}%)`
+                    : `${currentTaskRun.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} (${Math.round(currentTaskRun.progress)}%)`}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="space-y-4">
         {viewMode === "current" && !currentWeek ? (
@@ -248,6 +343,7 @@ export function UnitWeeklyFAQ({ taskRuns, unit, onWeeklyReportStart, onWeeklyRep
                           unit={unit}
                           onReportStart={onWeeklyReportStart}
                           onReportEnd={onWeeklyReportEnd}
+                          currentTransaction={currentTaskRun}
                         />
                       </>
                     )}

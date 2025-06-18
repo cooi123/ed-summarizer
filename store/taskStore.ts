@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import axios from "axios";
 import { apiEndpoints } from "@/const/apiEndpoints";
 import { apiService } from "@/lib/api";
 import { TaskRunRequest } from "@/types/task";
@@ -20,12 +19,16 @@ interface TaskResult {
   report: string;
   questions: SimilarQuestion[];
 }
-interface TaskRunStatusResponse {
+export interface TaskRunStatusResponse {
   transactionId: string;
   status: string;
   progress: number;
+  name: string;
+  weekId?: number;
 }
-
+export const isCompletedStatus = (status: string) => {
+  return ["completed", "success", "failure", "error"].includes(status);
+};
 export interface TaskRun {
   task_id: string;
   status: string;
@@ -199,7 +202,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         set({ currentTaskRun: response });
 
         // If task is completed or failed, stop polling
-        if (response.status === "completed" || response.status === "failed") {
+        if (isCompletedStatus(response.status)) {
           set({ loading: false, polling: false });
 
           // Refresh the task list if the task was completed

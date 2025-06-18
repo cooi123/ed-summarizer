@@ -9,14 +9,13 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Eye, FileText } from "lucide-react";
-import { TaskRun } from "@/store/taskStore";
+import { TaskRun, useTaskStore, TaskRunStatusResponse } from "@/store/taskStore";
 import { WeekConfig } from "@/types/unit";
 import { Unit } from "@/types/unit";
 import { useToast } from "@/hooks/use-toast";
 import { ReportPreviewDialog } from "../unit-report-preview-dialog";
 import { downloadReport } from "@/util/shared";
 import useUserStore from "@/store/userStore";
-import { useTaskStore } from "@/store/taskStore";
 import { parseDate } from "@/util/shared";
 
 
@@ -27,6 +26,7 @@ interface FAQWeeklyCardProps {
   unit: Unit;
   onReportStart?: () => void;
   onReportEnd?: () => void;
+  currentTransaction: TaskRunStatusResponse | null;
 }
 
 export function FAQWeeklyCard({
@@ -36,15 +36,14 @@ export function FAQWeeklyCard({
   unit,
   onReportStart,
   onReportEnd,
+  currentTransaction,
+  
 }: FAQWeeklyCardProps) {
   const { toast } = useToast();
   const { user } = useUserStore();
-  const { runTask, pollTaskStatus, loading } = useTaskStore();
+  const { runTask, loading } = useTaskStore();
   const [selectedRun, setSelectedRun] = useState<TaskRun | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [run, setRun] = useState<TaskRun | null>(null);
-
 
   const handleRunReport = async () => {
     if (!user) {
@@ -56,8 +55,16 @@ export function FAQWeeklyCard({
       return;
     }
 
+    if (currentTransaction && !isCompletedStatus(currentTransaction.status)) {
+      toast({
+        title: "Report in Progress",
+        description: "Please wait for the current report to complete before starting a new one.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      setIsGenerating(true);
       onReportStart?.();
       
       const run = await runTask(
@@ -66,20 +73,12 @@ export function FAQWeeklyCard({
         parseDate(week.startDate),
         parseDate(week.endDate)
       );
+      console.log("run", run);
 
-      // Start polling for task status
-      await pollTaskStatus(
-        run.transactionId,
-        unit.id.toString(),
-        user.id.toString()
-      );
-
-      // The polling will automatically stop when the task is completed or fails
-      // and will update the task list
       
       toast({
-        title: "Success",
-        description: "Report generation completed",
+        title: "Report Generation Started",
+        description: "Please wait while we generate your report.",
       });
     } catch (error) {
       toast({
@@ -87,8 +86,6 @@ export function FAQWeeklyCard({
         description: "Failed to generate report",
         variant: "destructive",
       });
-    } finally {
-      setIsGenerating(false);
       onReportEnd?.();
     }
   };
@@ -123,12 +120,14 @@ export function FAQWeeklyCard({
   const currentDate = new Date();
   const isFutureWeek = parseDate(week.startDate) > currentDate;
   
-  const weekStart = parseDate(week.startDate);
-  const weekEnd = parseDate(week.endDate);
+
+  const isCompletedStatus = (status: string) => {
+    return ["completed", "success", "failure", "error"].includes(status);
+  };
 
   return (
     <>
-      <Card >
+      <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
             <div>
@@ -139,11 +138,11 @@ export function FAQWeeklyCard({
             </div>
             <Button
               onClick={handleRunReport}
-              disabled={isFutureWeek || isGenerating}
+              disabled={isFutureWeek || !!currentTransaction}
               className="flex items-center gap-2"
             >
-              <FileText className={`h-4 w-4 ${isGenerating || loading ? 'animate-spin' : ''}`} />
-              {isGenerating ? 'Generating...' : 'Generate Report'}
+              <FileText className={`h-4 w-4 ${loading || isCompletedStatus(currentTransaction?.status || '') ? 'animate-spin' : ''}`} />
+              {currentTransaction?.weekId === week.weekId ? 'Generating...' : 'Generate Report'}
             </Button>
           </div>
         </CardHeader>
