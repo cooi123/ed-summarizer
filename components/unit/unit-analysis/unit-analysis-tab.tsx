@@ -61,18 +61,14 @@ export function UnitAnalysisTab({ unit }: UnitAnalysisTabProps) {
   const { user } = useUserStore();
   const [polling, setPolling] = useState(false);
 
-  const isValidStatus = (status: string): status is TransactionStatus["status"] => {
-    return ["received", "pending", "completed", "success", "failure", "error"].includes(status);
-  };
 
   // Load transaction from localStorage on mount
   useEffect(() => {
     const savedTransaction = localStorage.getItem(`analysis-transaction-${unit.id}`);
+    console.log("savedTransaction", savedTransaction);
     if (savedTransaction) {
       const parsed = JSON.parse(savedTransaction);
-      if (isValidStatus(parsed.status)) {
-        setCurrentTransaction(parsed);
-      }
+      setCurrentTransaction(parsed);
     }
   }, [unit.id]);
   // Save transaction to localStorage whenever it changes
@@ -223,7 +219,7 @@ export function UnitAnalysisTab({ unit }: UnitAnalysisTabProps) {
   }, [polling]); // Only depend on polling state
 
   const handleGenerateReport = async (category: string) => {
-    if (currentTransaction) {
+    if (currentTransaction && !isCompletedStatus(currentTransaction?.status)) {
       toast({
         title: "Analysis in Progress",
         description: "Please wait for the current analysis to complete before starting a new one.",
@@ -255,16 +251,9 @@ export function UnitAnalysisTab({ unit }: UnitAnalysisTabProps) {
         }
       );
 
-      if (!isValidStatus(response.status)) {
-        throw new Error(`Invalid status received: ${response.status}`);
-      }
-
-      const validatedStatus = response.status as TransactionStatus["status"];
-      console.log('Analysis started with response:', response);
-
       setCurrentTransaction({
         transactionId: response.transactionId,
-        status: validatedStatus,
+        status: response.status,
         progress: response.progress,
         name: category
       });
