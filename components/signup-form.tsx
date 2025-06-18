@@ -64,15 +64,9 @@ export function SignupForm() {
         <CardTitle>Complete Your Profile</CardTitle>
         <CardDescription>
           Please provide your Ed API key to complete your account setup. You can retrieve your API key from{" "}
-          <a 
-            href="https://edstem.org/au/settings/api-tokens" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-primary hover:underline"
-          >
-            Ed Forum API settings
-          </a>
-          .
+          Ed Forum API settings page.
+          <br />
+          <a href="https://edstem.org/au/settings/api-tokens" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">https://edstem.org/au/settings/api-tokens</a>
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -83,7 +77,7 @@ export function SignupForm() {
               id="name"
               value={name || ""}
               disabled
-              className="bg-muted"
+              className="bg-muted"  
             />
           </div>
           <div className="space-y-2">
