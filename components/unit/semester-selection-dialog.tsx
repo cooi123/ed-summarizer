@@ -98,7 +98,7 @@ export function SemesterSelectionDialog({
   const fetchSemesters = async () => {
     setIsLoadingSemesters(true);
     try {
-      const data = await apiService.get<Semester[]>('/semesters/');
+      const data = await apiService.get<Semester[]>('/api/v1/semesters/');
       setSemesters(data);
     } catch (error) {
       console.error('Failed to fetch semesters:', error);
