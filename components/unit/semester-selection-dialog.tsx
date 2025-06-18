@@ -23,6 +23,7 @@ import { updateAllWeeks } from "@/store/unitStore";
 import { format } from "date-fns";
 import { Calendar, BookOpen, Coffee, GraduationCap, FileText } from "lucide-react";
 import { generateWeeksFromSemester, Semester, SemesterPhase } from "@/util/semester";
+import { apiEndpoints } from "@/const/apiEndpoints";
 
 interface SemesterSelectionDialogProps {
   isOpen: boolean;
@@ -98,7 +99,7 @@ export function SemesterSelectionDialog({
   const fetchSemesters = async () => {
     setIsLoadingSemesters(true);
     try {
-      const data = await apiService.get<Semester[]>('/api/v1/semesters/');
+      const data = await apiService.get<Semester[]>(apiEndpoints.units.getSemesters());
       setSemesters(data);
     } catch (error) {
       console.error('Failed to fetch semesters:', error);

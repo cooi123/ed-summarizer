@@ -17,6 +17,7 @@ import { useUser } from "@clerk/nextjs";
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff, Save } from "lucide-react";
 import { apiService } from "@/lib/api";
+import { apiEndpoints } from "@/const/apiEndpoints";
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -144,7 +145,7 @@ export default function SettingsPage() {
     setApiKeyError(null);
     //test the api key using ed forum route   
     try {
-      const testApiKey = await apiService.post<{ valid: boolean }, { apiKey: string }>('/api/v1/proxy/ed-forum/validate-key', {
+      const testApiKey = await apiService.post<{ valid: boolean }, { apiKey: string }>(apiEndpoints.user.validateApiKey(), {
         apiKey
       });
 

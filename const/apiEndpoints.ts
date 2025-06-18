@@ -11,6 +11,7 @@ export const apiEndpoints = {
     update: () => `/api/v1/users/me`,
     create: () => `/api/v1/users/`,
     updateSelectedUnits: () => `/api/v1/users/me/selected-units`,
+    validateApiKey: () => `/api/v1/proxy/ed-forum/validate-key`,
   },
 
   // Unit endpoints
@@ -23,6 +24,8 @@ export const apiEndpoints = {
 
     getQuestionClusters: (unitId: string) => `/api/v1/question-clusters/units/${unitId}/clusters`,
     getCategories: (unitId: string) => `/api/v1/units/${unitId}/categories`,
+
+    getSemesters: () => `/api/v1/semesters/`,
   },
 
   tasks: {
