@@ -46,10 +46,8 @@ export interface TaskRun {
 interface TaskStore {
   // State
   taskRuns: TaskRun[];
-  currentTaskRun: TaskRunStatusResponse | null;
   loading: boolean;
   error: string | null;
-  polling: boolean;
 
   // Actions
   getTaskRuns: (unitId: string, userId: string) => Promise<void>;
@@ -60,22 +58,13 @@ interface TaskStore {
     startDate: Date,
     endDate: Date
   ) => Promise<TaskRunStatusResponse>;
-  pollTaskStatus: (
-    transactionId: string,
-    unitId: string,
-    userId: string,
-    intervalMs?: number
-  ) => Promise<void>;
-  stopPolling: () => void;
   clearError: () => void;
 }
 
 export const useTaskStore = create<TaskStore>((set, get) => ({
   taskRuns: [],
-  currentTaskRun: null,
   loading: false,
   error: null,
-  polling: false,
 
   getTaskRuns: async (unitId: string, userId: string) => {
     try {
@@ -145,15 +134,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         TaskRunRequest
       >(apiEndpoints.tasks.runTask(), payload);
 
-      // Update the current task run status
-      set((state) => ({
-        currentTaskRun: response,
-        loading: false,
-      }));
-
-      // Start polling automatically when a task is run
-      get().pollTaskStatus(response.transactionId, unitId, userId);
-
+      set({ loading: false });
       return response;
     } catch (error) {
       console.error("Error running task:", error);
@@ -163,80 +144,6 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       });
       throw error;
     }
-  },
-  pollTaskStatus: async (
-    transactionId: string,
-    unitId: string,
-    userId: string,
-    intervalMs = 2000
-  ) => {
-    // Stop any existing polling first
-    get().stopPolling();
-
-    // Set polling to true
-    set({ polling: true });
-
-    // Set start time for timeout
-    const startTime = Date.now();
-    const MAX_POLLING_DURATION = 2 * 60 * 1000; // 2 minutes in milliseconds
-
-    const checkStatus = async () => {
-      if (!get().polling) return; // Exit if polling has been stopped
-
-      // Check if we've exceeded the maximum polling duration
-      if (Date.now() - startTime > MAX_POLLING_DURATION) {
-        set({ 
-          polling: false, 
-          loading: false,
-          error: "Task polling timed out after 2 minutes"
-        });
-        return;
-      }
-
-      try {
-        // Assuming there's an endpoint to check task status
-        const response = await apiService.get<TaskRunStatusResponse>(
-          apiEndpoints.tasks.getTaskStatus(transactionId)
-        );
-
-        set({ currentTaskRun: response });
-
-        // If task is completed or failed, stop polling
-        if (isCompletedStatus(response.status)) {
-          set({ loading: false, polling: false });
-
-          // Refresh the task list if the task was completed
-          if (
-            response.status === "completed" ||
-            response.status === "failed" ||
-            response.status === "error"
-          ) {
-            //refetch the task run list
-            await get().getTaskRuns(unitId, userId);
-          }
-        } else {
-          // Continue polling
-          setTimeout(checkStatus, intervalMs);
-        }
-      } catch (error) {
-        console.error("Error polling task status:", error);
-        set({
-          error:
-            error instanceof Error
-              ? error.message
-              : "Failed to poll task status",
-          polling: false,
-          loading: false,
-        });
-      }
-    };
-
-    // Start the polling
-    checkStatus();
-  },
-
-  stopPolling: () => {
-    set({ polling: false });
   },
 
   clearError: () => set({ error: null }),

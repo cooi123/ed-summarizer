@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Eye, FileText } from "lucide-react";
-import { TaskRun, useTaskStore, TaskRunStatusResponse } from "@/store/taskStore";
+import { TaskRun, TaskRunStatusResponse, isCompletedStatus } from "@/store/taskStore";
 import { WeekConfig } from "@/types/unit";
 import { Unit } from "@/types/unit";
 import { useToast } from "@/hooks/use-toast";
@@ -24,7 +24,7 @@ interface FAQWeeklyCardProps {
   threads: any[];
   reports: TaskRun[];
   unit: Unit;
-  onReportStart?: () => void;
+  onReportStart?: (startDate: Date, endDate: Date) => void;
   onReportEnd?: () => void;
   currentTransaction: TaskRunStatusResponse | null;
 }
@@ -41,7 +41,6 @@ export function FAQWeeklyCard({
 }: FAQWeeklyCardProps) {
   const { toast } = useToast();
   const { user } = useUserStore();
-  const { runTask, loading } = useTaskStore();
   const [selectedRun, setSelectedRun] = useState<TaskRun | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
@@ -65,16 +64,10 @@ export function FAQWeeklyCard({
     }
 
     try {
-      onReportStart?.();
+      const startDate = parseDate(week.startDate);
+      const endDate = parseDate(week.endDate);
       
-      const run = await runTask(
-        unit.id.toString(),
-        user.id.toString(),
-        parseDate(week.startDate),
-        parseDate(week.endDate)
-      );
-      console.log("run", run);
-
+      onReportStart?.(startDate, endDate);
       
       toast({
         title: "Report Generation Started",
@@ -119,11 +112,6 @@ export function FAQWeeklyCard({
   const unansweredThreads = threads.length - answeredThreads;
   const currentDate = new Date();
   const isFutureWeek = parseDate(week.startDate) > currentDate;
-  
-
-  const isCompletedStatus = (status: string) => {
-    return ["completed", "success", "failure", "error"].includes(status);
-  };
 
   return (
     <>
@@ -138,10 +126,10 @@ export function FAQWeeklyCard({
             </div>
             <Button
               onClick={handleRunReport}
-              disabled={isFutureWeek || !!currentTransaction}
+              disabled={isFutureWeek || (currentTransaction?.status ? !isCompletedStatus(currentTransaction.status) : false)}
               className="flex items-center gap-2"
             >
-              <FileText className={`h-4 w-4 ${loading || isCompletedStatus(currentTransaction?.status || '') ? 'animate-spin' : ''}`} />
+              <FileText className={`h-4 w-4 ${currentTransaction?.status && !isCompletedStatus(currentTransaction.status) ? 'animate-spin' : ''}`} />
               {currentTransaction?.weekId === week.weekId ? 'Generating...' : 'Generate Report'}
             </Button>
           </div>

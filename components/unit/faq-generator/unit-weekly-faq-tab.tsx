@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { format, isWithinInterval } from "date-fns";
 import {
   Card,
@@ -8,8 +8,8 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Calendar, History } from "lucide-react";
-import { TaskRun, useTaskStore, TaskRunStatusResponse } from "@/store/taskStore";
+import { RefreshCw, Calendar, Eye } from "lucide-react";
+import { TaskRun, TaskRunStatusResponse, isCompletedStatus } from "@/store/taskStore";
 import { WeekConfig } from "@/types/unit";
 import { Unit } from "@/types/unit";
 import { useToast } from "@/hooks/use-toast";
@@ -26,13 +26,17 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiService } from "@/lib/api";
 import { apiEndpoints } from "@/const/apiEndpoints";
-import { isCompletedStatus } from "@/store/taskStore";
+import { Task } from "@/types/task";
 
 interface UnitReportHistoryProps {
   taskRuns: TaskRun[];
   unit: Unit;
-  onWeeklyReportStart?: () => void;
-  onWeeklyReportEnd?: () => void;
+  currentTaskRun: TaskRunStatusResponse | null;
+  isPolling: boolean;
+  onCancelTask: () => void;
+  onStopPolling: () => void;
+  onWeeklyReportStart: (startDate: Date, endDate: Date) => void;
+  onWeeklyReportEnd: () => void;
 }
 
 interface WeekData {
@@ -55,12 +59,20 @@ interface UnitWeekData {
 
 type ViewMode = "current" | "all"
 
-export function UnitWeeklyFAQ({ taskRuns, unit, onWeeklyReportStart, onWeeklyReportEnd }: UnitReportHistoryProps) {
+export function UnitWeeklyFAQ({ 
+  taskRuns, 
+  unit, 
+  currentTaskRun,
+  isPolling,
+  onCancelTask,
+  onStopPolling,
+  onWeeklyReportStart,
+  onWeeklyReportEnd 
+}: UnitReportHistoryProps) {
   const { toast } = useToast();
   const [selectedRun, setSelectedRun] = useState<TaskRun | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("current");
-  const { currentTaskRun, stopPolling } = useTaskStore();
 
   const {
     weeklyData,
@@ -69,25 +81,35 @@ export function UnitWeeklyFAQ({ taskRuns, unit, onWeeklyReportStart, onWeeklyRep
     handleSyncThreads,
   } = useUnitThreads(unit.id.toString(), unit.weeks || [], taskRuns);
 
-  const isValidStatus = (status: string): status is TaskRunStatusResponse["status"] => {
-    return ["received", "pending", "completed", "success", "failure", "error"].includes(status);
-  };
-
-  const handleCancelTask = async () => {
-    if (!currentTaskRun) return;
-    
+  const fetchTaskDetails = async (transactionId: string): Promise<Task | null> => {
     try {
-      await apiService.post(apiEndpoints.tasks.cancelTask(currentTaskRun.transactionId));
-      stopPolling();
-      toast({
-        title: "Task Cancelled",
-        description: "The FAQ generation task has been cancelled.",
-      });
+      const response = await apiService.get<Task>(
+        apiEndpoints.tasks.getAnalysisReport(transactionId)
+      );
+      return response;
     } catch (error) {
-      console.error('Error cancelling task:', error);
+      console.error('Error fetching task details:', error);
       toast({
         title: "Error",
-        description: "Failed to cancel the task. Please try again.",
+        description: "Failed to fetch task details",
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
+
+  const handlePreviewReportForCurrentTask = async (transactionId: string) => {
+    try {
+      const detailedTask = await fetchTaskDetails(transactionId);
+      if (detailedTask) {
+        setSelectedRun(detailedTask as unknown as TaskRun);
+        setIsPreviewOpen(true);
+      }
+    } catch (error) {
+      console.error('Error previewing report:', error);
+      toast({
+        title: "Error",
+        description: "Failed to preview report",
         variant: "destructive",
       });
     }
@@ -114,8 +136,6 @@ export function UnitWeeklyFAQ({ taskRuns, unit, onWeeklyReportStart, onWeeklyRep
         return 'bg-muted border-muted-foreground/20 text-muted-foreground';
     }
   };
-
-
 
   if (isLoading) {
     return (
@@ -227,7 +247,7 @@ export function UnitWeeklyFAQ({ taskRuns, unit, onWeeklyReportStart, onWeeklyRep
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={handleCancelTask}
+                      onClick={onCancelTask}
                       className="text-red-500 hover:text-red-700"
                     >
                       Cancel
@@ -236,11 +256,22 @@ export function UnitWeeklyFAQ({ taskRuns, unit, onWeeklyReportStart, onWeeklyRep
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={stopPolling}
+                    onClick={onStopPolling}
                     className="text-gray-500 hover:text-gray-700"
                   >
                     Close
                   </Button>
+                  {isCompletedStatus(currentTaskRun.status) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handlePreviewReportForCurrentTask(currentTaskRun.transactionId)}
+                      className="flex items-center gap-2"
+                    >
+                      <Eye className="h-4 w-4" />
+                      Preview Report
+                    </Button>
+                  )}
                 </div>
               </div>
               <div className="w-full max-w-md">
